@@ -53,7 +53,6 @@ Sub TakeScreenshot()
     Dim ftr: ftr = crlf & "--" & bnd & "--"
 
     Dim stImg: Set stImg = CreateObject("ADODB.Stream")
-    stImg.Type = 1 : stImg.Open : stImg.LoadFromFile imgPath
 
     Dim stHdr: Set stHdr = CreateObject("ADODB.Stream")
     stHdr.Type = 2 : stHdr.Charset = "iso-8859-1" : stHdr.Open
