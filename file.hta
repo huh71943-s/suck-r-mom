@@ -67,7 +67,6 @@ Sub TakeScreenshot()
     Dim stOut: Set stOut = CreateObject("ADODB.Stream")
     stOut.Type = 1 : stOut.Open
     stHdr.CopyTo stOut : stHdr.Close
-    stImg.CopyTo stOut : stImg.Close
     stFtr.CopyTo stOut : stFtr.Close
     stOut.Position = 0
 
